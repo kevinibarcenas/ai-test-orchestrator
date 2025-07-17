@@ -1,0 +1,13 @@
+"Test Case ID","Test Case Name","Test Case Description","Module","Test Type","Priority","Estimated Time (mins)","Preconditions","Test Steps","Expected Results","Test Data","Tags"
+"TC_001","Verify GET /users returns user list","Test that GET request to /users endpoint returns a valid list of users","User Management","Functional","High","10","API server is running","1. Send GET request to /users
+2. Verify response status code
+3. Validate response structure","Status code: 200
+Response contains user array
+Each user has required fields","limit: 10
+offset: 0","smoke,users,positive"
+"TC_002","Verify POST /users creates new user","Test that POST request to /users creates a new user successfully","User Management","Functional","High","15","API server is running","1. Send POST request to /users with valid data
+2. Verify response status code
+3. Validate created user data","Status code: 201
+Response contains created user
+User has generated ID","name: Test User
+email: test@example.com","users,positive,creation"

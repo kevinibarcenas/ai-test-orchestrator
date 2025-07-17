@@ -1,0 +1,70 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Install Dependencies",
+            "type": "shell",
+            "command": "poetry",
+            "args": [
+                "install"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Run Tests",
+            "type": "shell",
+            "command": "poetry",
+            "args": [
+                "run",
+                "pytest",
+                "tests/",
+                "-v"
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Format Code",
+            "type": "shell",
+            "command": "poetry",
+            "args": [
+                "run",
+                "black",
+                "src/",
+                "tests/"
+            ],
+            "group": "build"
+        },
+        {
+            "label": "Type Check",
+            "type": "shell",
+            "command": "poetry",
+            "args": [
+                "run",
+                "mypy",
+                "src/"
+            ],
+            "group": "build"
+        },
+        {
+            "label": "Lint & Format",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Format Code",
+                "Type Check"
+            ],
+            "group": "build"
+        }
+    ]
+}

@@ -1,0 +1,47 @@
+[project]
+name = "ai-test-orchestrator"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "kevin.barcenas@oracle.com"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "debugpy (>=1.8.15,<2.0.0)",
+    "black (>=25.1.0,<26.0.0)",
+    "ruff (>=0.12.3,<0.13.0)",
+    "isort (>=6.0.1,<7.0.0)",
+    "rich (>=14.0.0,<15.0.0)",
+    "pydantic-settings (>=2.10.1,<3.0.0)",
+    "typer (>=0.16.0,<0.17.0)",
+    "openai (>=1.97.0,<2.0.0)",
+    "aiofiles (>=24.1.0,<25.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+pytest-asyncio = "^1.1.0"
+black = "^25.1.0"
+isort = "^6.0.1"
+mypy = "^1.17.0"
+pre-commit = "^4.2.0"
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
