@@ -1,4 +1,4 @@
-"""Refactored base agent with dependency injection"""
+"""base agent with dependency injection"""
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 import time
@@ -120,7 +120,7 @@ class BaseAgent(ABC):
         return context
 
     async def execute(self, input_data: AgentInput) -> AgentOutput:
-        """Execute the agent with input data"""
+        """Execute the agent with input data and proper token tracking"""
         start_time = time.time()
         self.logger.info(
             f"Starting {self.agent_type.value} agent for section: {input_data.section.section_id}")
@@ -133,10 +133,17 @@ class BaseAgent(ABC):
             schema = self.validation_service.get_schema(
                 self.get_output_schema_name())
 
-            # Make LLM call with structured output
-            llm_output = await self.llm_service.generate_structured_response(
+            # Make LLM call with structured output and get token usage
+            llm_output, usage_info = await self.llm_service.generate_structured_response(
                 messages=messages,
                 schema=schema
+            )
+
+            # Log token usage
+            self.logger.info(
+                f"LLM call completed - Input: {usage_info['input_tokens']}, "
+                f"Output: {usage_info['output_tokens']}, "
+                f"Total: {usage_info['total_tokens']} tokens"
             )
 
             # Validate output
@@ -149,27 +156,38 @@ class BaseAgent(ABC):
             # Process into agent-specific output
             agent_output = await self.process_llm_output(llm_output, input_data)
 
-            # Update metadata
+            # Update metrics with proper token tracking
             processing_time = time.time() - start_time
-            agent_output.processing_time = processing_time
+            agent_output.metrics.processing_time = processing_time
+            agent_output.metrics.token_usage.input_tokens = usage_info["input_tokens"]
+            agent_output.metrics.token_usage.output_tokens = usage_info["output_tokens"]
+            agent_output.metrics.token_usage.total_tokens = usage_info["total_tokens"]
+
+            # Mark completion time
+            agent_output.metrics.mark_completed()
             agent_output.success = True
 
             self.logger.info(
-                f"✅ {self.agent_type.value} agent completed in {processing_time:.2f}s")
+                f"✅ {self.agent_type.value} agent completed in {processing_time:.2f}s "
+                f"(Tokens: {usage_info['total_tokens']})"
+            )
             return agent_output
 
         except Exception as e:
             processing_time = time.time() - start_time
             self.logger.error(f"❌ {self.agent_type.value} agent failed: {e}")
 
-            # Return error output
-            return AgentOutput(
+            # Return error output with basic metrics
+            error_output = AgentOutput(
                 agent_type=self.agent_type,
                 section_id=input_data.section.section_id,
                 success=False,
-                processing_time=processing_time,
                 errors=[str(e)]
             )
+            error_output.metrics.processing_time = processing_time
+            error_output.metrics.mark_completed()
+
+            return error_output
 
     @abstractmethod
     async def process_llm_output(self, llm_output: Dict[str, Any], input_data: AgentInput) -> AgentOutput:

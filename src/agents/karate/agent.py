@@ -46,7 +46,7 @@ class KarateAgent(BaseAgent):
             "assertion_types": ["status", "header", "response_time", "schema", "content"],
             "variable_scoping": ["feature", "scenario", "call"],
             "data_file_formats": ["json", "csv", "yaml"],
-            "include_documentation": False,
+            "include_documentation": input_data.agent_config.get("generate_karate_docs", True),
             "include_setup_teardown": False,
             "include_examples": True,
             "best_practices": True
@@ -81,12 +81,19 @@ class KarateAgent(BaseAgent):
             self.logger.info(
                 f"Metadata claims {metadata.get('total_scenarios', 0)} total scenarios")
 
-            # Generate feature file using processor
+            # Extract documentation generation flag from agent config
+            generate_docs = input_data.agent_config.get(
+                "generate_karate_docs", True)
+            self.logger.info(
+                f"Documentation generation: {'enabled' if generate_docs else 'disabled'}")
+
+            # Generate feature file using processor with conditional documentation
             generated_files = await self.karate_processor.generate_feature_files(
                 feature_data=feature_data,
                 data_files_data=data_files_data,
                 section_id=input_data.section.section_id,
-                metadata=metadata
+                metadata=metadata,
+                generate_docs=generate_docs
             )
 
             # Validate the generated feature file
@@ -94,6 +101,11 @@ class KarateAgent(BaseAgent):
             is_valid = False
             if feature_file:
                 is_valid = await self.karate_processor.validate_feature_file(feature_file)
+
+            # Prepare documentation file path if generated
+            documentation_file = ""
+            if generate_docs and "documentation" in generated_files:
+                documentation_file = str(generated_files["documentation"])
 
             return KarateOutput(
                 agent_type=self.agent_type,
@@ -108,6 +120,7 @@ class KarateAgent(BaseAgent):
                 background_steps=metadata.get("background_steps", []),
                 variables_used=metadata.get("variables_used", []),
                 data_driven_scenarios=metadata.get("data_driven_count", 0),
+                documentation_file=documentation_file,
                 metadata={
                     "feature_title": feature_data.get("feature_title", ""),
                     "validation_passed": is_valid,
@@ -116,7 +129,9 @@ class KarateAgent(BaseAgent):
                     "test_coverage": metadata.get("test_coverage", {}),
                     "karate_version": "1.4.x",
                     "execution_requirements": metadata.get("execution_requirements", {}),
-                    "framework_features_used": metadata.get("framework_features_used", [])
+                    "framework_features_used": metadata.get("framework_features_used", []),
+                    "documentation_generated": generate_docs,
+                    "documentation_path": documentation_file if generate_docs else None
                 }
             )
 

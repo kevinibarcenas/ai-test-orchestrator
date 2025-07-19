@@ -27,15 +27,17 @@ class KarateProcessor:
         feature_data: Dict[str, Any],
         data_files_data: List[Dict[str, Any]],
         section_id: str,
-        metadata: Dict[str, Any]
+        metadata: Dict[str, Any],
+        generate_docs: bool = True
     ) -> Dict[str, Path]:
-        """Generate Karate feature file and associated data files"""
+        """Generate Karate feature file and optionally associated data files and documentation"""
         try:
             self.logger.debug(f"Generating files for section: {section_id}")
             self.logger.debug(f"Feature data type: {type(feature_data)}")
             self.logger.debug(
                 f"Data files type: {type(data_files_data)}, count: {len(data_files_data) if isinstance(data_files_data, list) else 'N/A'}")
             self.logger.debug(f"Metadata type: {type(metadata)}")
+            self.logger.debug(f"Generate documentation: {generate_docs}")
 
             # Create clean filename from feature title or section name
             feature_title = feature_data.get("feature_title", section_id)
@@ -102,12 +104,18 @@ class KarateProcessor:
                     data_path = self.settings.output_directory / "karate" / filename
                     generated_files[f"data_{i+1}"] = await self.export_service.export_text(yaml_content, data_path)
 
-            # Generate documentation file
-            doc_content = self._generate_feature_documentation(
-                feature_data, metadata, list(generated_files.keys()))
-            doc_filename = f"{clean_name}_README.md"
-            doc_path = self.settings.output_directory / "karate" / doc_filename
-            generated_files["documentation"] = await self.export_service.export_text(doc_content, doc_path)
+            # Conditionally generate documentation file
+            if generate_docs:
+                doc_content = self._generate_feature_documentation(
+                    feature_data, metadata, list(generated_files.keys()))
+                doc_filename = f"{clean_name}_README.md"
+                doc_path = self.settings.output_directory / "karate" / doc_filename
+                generated_files["documentation"] = await self.export_service.export_text(doc_content, doc_path)
+                self.logger.info(
+                    f"✅ Generated Karate documentation: {doc_filename}")
+            else:
+                self.logger.info(
+                    "📋 Skipped Karate documentation generation (disabled)")
 
             self.logger.info(
                 f"✅ Generated Karate feature files: {len(generated_files)} files")

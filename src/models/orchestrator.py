@@ -55,6 +55,16 @@ class OrchestratorInput(BaseModel):
     generate_postman: bool = Field(
         True, description="Generate Postman collection")
 
+    # Documentation control
+    generate_documentation: bool = Field(
+        True, description="Generate documentation files for artifacts")
+    generate_csv_docs: bool = Field(
+        True, description="Generate CSV documentation and guides")
+    generate_karate_docs: bool = Field(
+        True, description="Generate Karate feature documentation and setup guides")
+    generate_postman_docs: bool = Field(
+        True, description="Generate Postman collection documentation and usage guides")
+
     # Processing options
     parallel_processing: bool = Field(
         True, description="Process agents in parallel")
@@ -67,6 +77,16 @@ class OrchestratorInput(BaseModel):
         if not self.swagger_file and not self.pdf_file:
             raise ValueError(
                 "At least one input file (swagger_file or pdf_file) must be provided")
+        return self
+
+    @model_validator(mode='after')
+    def validate_documentation_flags(self):
+        """Validate documentation flag combinations"""
+        # If master documentation flag is False, set all specific flags to False
+        if not self.generate_documentation:
+            self.generate_csv_docs = False
+            self.generate_karate_docs = False
+            self.generate_postman_docs = False
         return self
 
     @field_validator('output_directory')

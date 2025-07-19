@@ -47,10 +47,17 @@ class SectionAnalyzer:
             schema = self.validation_service.get_schema(
                 "section_analysis_schema")
 
-            # Make LLM call for analysis
-            llm_output = await self.llm_service.generate_structured_response(
+            # Make LLM call for analysis with proper token handling
+            llm_output, usage_info = await self.llm_service.generate_structured_response(
                 messages=messages,
                 schema=schema
+            )
+
+            # Log token usage
+            self.logger.info(
+                f"Section analysis completed - Input: {usage_info['input_tokens']}, "
+                f"Output: {usage_info['output_tokens']}, "
+                f"Total: {usage_info['total_tokens']} tokens"
             )
 
             # Validate the output

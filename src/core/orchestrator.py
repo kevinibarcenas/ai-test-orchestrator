@@ -41,6 +41,10 @@ class TestOrchestrator:
         start_time = time.time()
 
         self.logger.info(f"🚀 Starting orchestration execution: {execution_id}")
+        self.logger.info(f"📋 Documentation settings: Master={orchestrator_input.generate_documentation}, "
+                         f"CSV={orchestrator_input.generate_csv_docs}, "
+                         f"Karate={orchestrator_input.generate_karate_docs}, "
+                         f"Postman={orchestrator_input.generate_postman_docs}")
 
         try:
             # Phase 1: Upload and validate files
@@ -119,6 +123,30 @@ class TestOrchestrator:
 
         return file_ids
 
+    def _create_agent_input(self, section_data: Dict, orchestrator_input: OrchestratorInput, file_ids: Dict) -> AgentInput:
+        """Create AgentInput with proper configuration including documentation flags"""
+        section = self._create_section_from_data(section_data)
+
+        return AgentInput(
+            section=section,
+            swagger_file_id=file_ids.get("swagger"),
+            pdf_file_id=file_ids.get("pdf"),
+            swagger_content=file_ids.get("swagger_content"),
+            user_prompt=orchestrator_input.user_prompt,
+            agent_config={
+                # Documentation control flags
+                "generate_documentation": orchestrator_input.generate_documentation,
+                "generate_csv_docs": orchestrator_input.generate_csv_docs,
+                "generate_karate_docs": orchestrator_input.generate_karate_docs,
+                "generate_postman_docs": orchestrator_input.generate_postman_docs,
+
+                # Processing configuration
+                "max_tokens_per_section": orchestrator_input.max_tokens_per_section,
+                "sectioning_strategy": orchestrator_input.sectioning_strategy.value,
+                "parallel_processing": orchestrator_input.parallel_processing
+            }
+        )
+
     async def _execute_agents_for_sections(
         self,
         orchestrator_input: OrchestratorInput,
@@ -135,19 +163,11 @@ class TestOrchestrator:
             # Reset the processor state for a fresh collection
             shared_postman_agent.postman_processor.reset_state()
 
-        # Create agent inputs for each section
+        # Create agent inputs for each section with proper configuration
         agent_inputs = []
         for section_data in sections:
-            section = self._create_section_from_data(section_data)
-            agent_input = AgentInput(
-                section=section,
-                # Will be None with new approach
-                swagger_file_id=file_ids.get("swagger"),
-                pdf_file_id=file_ids.get("pdf"),
-                # New field for text content
-                swagger_content=file_ids.get("swagger_content"),
-                user_prompt=orchestrator_input.user_prompt
-            )
+            agent_input = self._create_agent_input(
+                section_data, orchestrator_input, file_ids)
             agent_inputs.append(agent_input)
 
         # Execute agents based on configuration
@@ -227,46 +247,6 @@ class TestOrchestrator:
                 postman_agent = self.agent_factory.create_postman_agent()
                 postman_result = await postman_agent.execute(agent_input)
                 results["postman"].append(postman_result)
-
-    def _create_section_from_data(self, section_data: Dict) -> 'Section':
-        """Create Section model from dictionary data"""
-        from src.models.agents import Section
-        from src.models.base import BaseEndpoint, BaseTestCase
-
-        # Convert endpoints
-        endpoints = []
-        for ep_data in section_data.get("endpoints", []):
-            endpoints.append(BaseEndpoint(**ep_data))
-
-        # Convert test cases
-        test_cases = []
-        for tc_data in section_data.get("test_cases", []):
-            test_cases.append(BaseTestCase(**tc_data))
-
-        return Section(
-            section_id=section_data["section_id"],
-            name=section_data["name"],
-            description=section_data["description"],
-            endpoints=endpoints,
-            test_cases=test_cases,
-            estimated_tokens=section_data.get("estimated_tokens", 0)
-        )
-
-    # Convenience methods for CLI usage
-    async def generate_from_swagger(
-        self,
-        swagger_file: Path,
-        user_prompt: Optional[str] = None,
-        output_dir: Path = Path("outputs")
-    ) -> OrchestratorResult:
-        """Convenience method for Swagger-only generation"""
-        from pathlib import Path
-        orchestrator_input = OrchestratorInput(
-            swagger_file=swagger_file,
-            user_prompt=user_prompt,
-            output_directory=output_dir
-        )
-        return await self.execute(orchestrator_input)
 
     async def _execute_agents_sequential_with_shared(
         self,
@@ -349,18 +329,24 @@ class TestOrchestrator:
         results: Dict[str, List],
         shared_postman_agent: Any
     ) -> None:
-        """Finalize and export the consolidated Postman collection"""
+        """Finalize and export the consolidated Postman collection with conditional documentation"""
         try:
             self.logger.info("📮 Finalizing consolidated Postman collection...")
+
+            # Extract documentation generation flag
+            generate_docs = orchestrator_input.generate_postman_docs
 
             # Use the shared agent's processor
             postman_processor = shared_postman_agent.postman_processor
 
-            # Generate the final consolidated collection
+            # Generate the final consolidated collection with conditional documentation
             timestamp = self._get_timestamp()
             base_name = f"api_collection_{timestamp}"
 
-            generated_files = await postman_processor.finalize_and_export_collection(base_name)
+            generated_files = await postman_processor.finalize_and_export_collection(
+                base_name,
+                generate_docs=generate_docs
+            )
 
             # Validate the generated collection
             collection_path = generated_files.get("collection")
@@ -381,11 +367,19 @@ class TestOrchestrator:
                              ] if "environment" in generated_files else []
                 postman_output.environment_files = env_files
 
+                # Documentation file
+                if generate_docs and "documentation" in generated_files:
+                    postman_output.documentation_file = str(
+                        generated_files["documentation"])
+                else:
+                    postman_output.documentation_file = ""
+
                 # Update metadata
                 postman_output.metadata["validation_passed"] = is_valid
                 postman_output.metadata["generated_files"] = list(
                     generated_files.keys())
                 postman_output.metadata["finalized"] = True
+                postman_output.metadata["documentation_generated"] = generate_docs
 
             # Update the first output with consolidated metrics
             if results["postman"]:
@@ -398,8 +392,9 @@ class TestOrchestrator:
                     "collection_summary"] = f"Consolidated collection with {postman_processor._total_requests} requests across {len(postman_processor._all_folders)} functional areas"
                 first_output.metadata["folder_structure"] = postman_processor._all_folders
 
+            doc_status = "with documentation" if generate_docs else "without documentation"
             self.logger.info(
-                f"✅ Consolidated Postman collection finalized: {len(generated_files)} files generated")
+                f"✅ Consolidated Postman collection finalized {doc_status}: {len(generated_files)} files generated")
 
         except Exception as e:
             self.logger.error(f"❌ Postman collection finalization failed: {e}")
@@ -409,7 +404,52 @@ class TestOrchestrator:
                 postman_output.errors.append(
                     f"Collection finalization failed: {str(e)}")
 
+    def _create_section_from_data(self, section_data: Dict) -> 'Section':
+        """Create Section model from dictionary data"""
+        from src.models.agents import Section
+        from src.models.base import BaseEndpoint, BaseTestCase
+
+        # Convert endpoints
+        endpoints = []
+        for ep_data in section_data.get("endpoints", []):
+            endpoints.append(BaseEndpoint(**ep_data))
+
+        # Convert test cases
+        test_cases = []
+        for tc_data in section_data.get("test_cases", []):
+            test_cases.append(BaseTestCase(**tc_data))
+
+        return Section(
+            section_id=section_data["section_id"],
+            name=section_data["name"],
+            description=section_data["description"],
+            endpoints=endpoints,
+            test_cases=test_cases,
+            estimated_tokens=section_data.get("estimated_tokens", 0)
+        )
+
     def _get_timestamp(self) -> str:
         """Get timestamp for filename"""
         from datetime import datetime
         return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Convenience methods for CLI usage
+    async def generate_from_swagger(
+        self,
+        swagger_file: Path,
+        user_prompt: Optional[str] = None,
+        output_dir: Path = Path("outputs"),
+        generate_documentation: bool = True
+    ) -> OrchestratorResult:
+        """Convenience method for Swagger-only generation with documentation control"""
+        from pathlib import Path
+        orchestrator_input = OrchestratorInput(
+            swagger_file=swagger_file,
+            user_prompt=user_prompt,
+            output_directory=output_dir,
+            generate_documentation=generate_documentation,
+            generate_csv_docs=generate_documentation,
+            generate_karate_docs=generate_documentation,
+            generate_postman_docs=generate_documentation
+        )
+        return await self.execute(orchestrator_input)

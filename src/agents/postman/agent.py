@@ -45,7 +45,7 @@ class PostmanAgent(BaseAgent):
             "auth_methods": ["bearer", "apikey", "basic"],
             "test_types": ["status_validation", "schema_validation", "data_extraction", "error_handling"],
             "advanced_features": True,
-            "include_documentation": True,
+            "include_documentation": input_data.agent_config.get("generate_postman_docs", True),
             "include_test_scripts": True,
             "include_pre_request_scripts": True
         }
@@ -67,6 +67,12 @@ class PostmanAgent(BaseAgent):
                 "endpoints_processed": len(input_data.section.endpoints)
             }
 
+            # Extract documentation generation flag from agent config
+            generate_docs = input_data.agent_config.get(
+                "generate_postman_docs", True)
+            self.logger.info(
+                f"Documentation generation: {'enabled' if generate_docs else 'disabled'}")
+
             # Add this section to the consolidated collection (no files generated yet)
             await self.postman_processor.generate_collection_files(
                 collection_data=collection_data,
@@ -87,6 +93,12 @@ class PostmanAgent(BaseAgent):
                 folder_count=len(metadata.get("folder_structure", [])),
                 auth_methods=metadata.get("auth_methods", []),
                 environment_count=len(environments_data),
+                has_tests=True,
+                has_pre_request_scripts=True,
+                variables_count=len(collection_data.get("variable", [])),
+                documentation_file="",  # Will be set during finalization
+                is_consolidated=True,
+                section_folder_name=input_data.section.name,
                 metadata={
                     "collection_summary": metadata.get("collection_summary", ""),
                     "folder_structure": metadata.get("folder_structure", []),
@@ -94,7 +106,8 @@ class PostmanAgent(BaseAgent):
                     "test_coverage": metadata.get("test_coverage", {}),
                     "section_name": input_data.section.name,
                     "endpoints_processed": len(input_data.section.endpoints),
-                    "consolidated": True  # Flag to indicate this is part of a consolidated collection
+                    "consolidated": True,  # Flag to indicate this is part of a consolidated collection
+                    "documentation_generation": generate_docs
                 }
             )
 

@@ -58,8 +58,12 @@ class PostmanProcessor:
             self.logger.error(f"Postman section processing failed: {e}")
             raise
 
-    async def finalize_and_export_collection(self, base_name: str = None) -> Dict[str, Path]:
-        """Finalize and export the consolidated collection"""
+    async def finalize_and_export_collection(
+        self,
+        base_name: str = None,
+        generate_docs: bool = True
+    ) -> Dict[str, Path]:
+        """Finalize and export the consolidated collection with optional documentation"""
         try:
             if self._consolidated_collection is None:
                 raise ValueError("No collection data to export")
@@ -84,9 +88,14 @@ class PostmanProcessor:
                 env_path = await self._generate_environment_file(base_name)
                 output_paths["environment"] = env_path
 
-            # Generate consolidated documentation
-            docs_path = await self._generate_consolidated_documentation(base_name)
-            output_paths["documentation"] = docs_path
+            # Conditionally generate consolidated documentation
+            if generate_docs:
+                docs_path = await self._generate_consolidated_documentation(base_name)
+                output_paths["documentation"] = docs_path
+                self.logger.info(f"✅ Generated Postman documentation")
+            else:
+                self.logger.info(
+                    "📋 Skipped Postman documentation generation (disabled)")
 
             self.logger.info(
                 f"✅ Generated consolidated Postman collection with {self._total_requests} requests")
