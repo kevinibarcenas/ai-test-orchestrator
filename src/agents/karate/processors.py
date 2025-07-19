@@ -28,11 +28,16 @@ class KarateProcessor:
         data_files_data: List[Dict[str, Any]],
         section_id: str,
         metadata: Dict[str, Any],
-        generate_docs: bool = True
+        generate_docs: bool = True,
+        output_directory: Path = None
     ) -> Dict[str, Path]:
         """Generate Karate feature file and optionally associated data files and documentation"""
         try:
+            # Use provided output directory or fall back to settings
+            base_output_dir = output_directory or self.settings.output_directory
+
             self.logger.debug(f"Generating files for section: {section_id}")
+            self.logger.debug(f"Using output directory: {base_output_dir}")
             self.logger.debug(f"Feature data type: {type(feature_data)}")
             self.logger.debug(
                 f"Data files type: {type(data_files_data)}, count: {len(data_files_data) if isinstance(data_files_data, list) else 'N/A'}")
@@ -49,7 +54,7 @@ class KarateProcessor:
             feature_content = self._build_feature_content(
                 feature_data, metadata)
             feature_filename = f"{clean_name}.feature"
-            feature_path = self.settings.output_directory / "karate" / feature_filename
+            feature_path = base_output_dir / "karate" / feature_filename
 
             feature_file_path = await self.export_service.export_text(feature_content, feature_path)
             generated_files["feature"] = feature_file_path
@@ -82,18 +87,18 @@ class KarateProcessor:
 
                 # Determine file format and export accordingly
                 if filename.endswith('.json'):
-                    data_path = self.settings.output_directory / "karate" / filename
+                    data_path = base_output_dir / "karate" / filename
                     generated_files[f"data_{i+1}"] = await self.export_service.export_json(content, data_path)
                 elif filename.endswith('.csv'):
                     # Convert JSON to CSV format if needed
                     if isinstance(content, list) and content:
                         headers = list(content[0].keys())
-                        data_path = self.settings.output_directory / "karate" / filename
+                        data_path = base_output_dir / "karate" / filename
                         generated_files[f"data_{i+1}"] = await self.export_service.export_csv(content, data_path, headers)
                     else:
                         # Create simple CSV from string content
                         csv_data = [{"data": str(content)}]
-                        data_path = self.settings.output_directory / "karate" / filename
+                        data_path = base_output_dir / "karate" / filename
                         generated_files[f"data_{i+1}"] = await self.export_service.export_csv(csv_data, data_path, ["data"])
                 elif filename.endswith('.yaml') or filename.endswith('.yml'):
                     if isinstance(content, str):
@@ -101,7 +106,7 @@ class KarateProcessor:
                     else:
                         yaml_content = yaml.dump(
                             content, default_flow_style=False, allow_unicode=True)
-                    data_path = self.settings.output_directory / "karate" / filename
+                    data_path = base_output_dir / "karate" / filename
                     generated_files[f"data_{i+1}"] = await self.export_service.export_text(yaml_content, data_path)
 
             # Conditionally generate documentation file
@@ -109,7 +114,7 @@ class KarateProcessor:
                 doc_content = self._generate_feature_documentation(
                     feature_data, metadata, list(generated_files.keys()))
                 doc_filename = f"{clean_name}_README.md"
-                doc_path = self.settings.output_directory / "karate" / doc_filename
+                doc_path = base_output_dir / "karate" / doc_filename
                 generated_files["documentation"] = await self.export_service.export_text(doc_content, doc_path)
                 self.logger.info(
                     f"✅ Generated Karate documentation: {doc_filename}")
@@ -172,8 +177,16 @@ class KarateProcessor:
 
         # Scenarios
         scenarios = feature_data.get("scenarios", [])
-        self.logger.debug(
+        self.logger.info(
             f"Processing {len(scenarios)} scenarios from LLM output")
+
+        # Log scenario count mismatch if detected
+        expected_scenarios = metadata.get("total_scenarios", len(scenarios))
+        if len(scenarios) < expected_scenarios:
+            self.logger.warning(
+                f"⚠️ Scenario count mismatch: Expected {expected_scenarios}, got {len(scenarios)}. "
+                "This may indicate the LLM didn't generate all requested scenarios."
+            )
 
         for i, scenario in enumerate(scenarios):
             self.logger.debug(

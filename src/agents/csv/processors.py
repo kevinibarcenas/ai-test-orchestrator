@@ -24,14 +24,18 @@ class CSVProcessor:
         self,
         test_cases: List[Dict[str, Any]],
         section_id: str,
-        headers: List[str]
+        headers: List[str],
+        output_directory: Path = None
     ) -> Path:
-        """Generate CSV file from test cases"""
+        """Generate CSV file from test cases using specified output directory"""
         try:
-            # Create output path
+            # Use provided output directory or fall back to settings
+            base_output_dir = output_directory or self.settings.output_directory
+
+            # Create output path with proper directory structure
             timestamp = self._get_timestamp()
             filename = f"test_cases_{section_id}_{timestamp}.csv"
-            output_path = self.settings.output_directory / "csv" / filename
+            output_path = base_output_dir / "csv" / filename
 
             # Convert test cases to CSV format
             csv_rows = []

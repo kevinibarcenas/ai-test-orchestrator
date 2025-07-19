@@ -27,6 +27,7 @@ class PostmanProcessor:
         self._total_requests = 0
         self._all_folders = []
         self._api_name = "API"  # Will be set from first collection
+        self._output_directory = None  # Will be set during processing
 
     async def generate_collection_files(
         self,
@@ -61,12 +62,17 @@ class PostmanProcessor:
     async def finalize_and_export_collection(
         self,
         base_name: str = None,
-        generate_docs: bool = True
+        generate_docs: bool = True,
+        output_directory: Path = None
     ) -> Dict[str, Path]:
-        """Finalize and export the consolidated collection with optional documentation"""
+        """Finalize and export the consolidated collection with optional documentation and custom output directory"""
         try:
             if self._consolidated_collection is None:
                 raise ValueError("No collection data to export")
+
+            # Use provided output directory or fall back to settings
+            base_output_dir = output_directory or self._output_directory or self.settings.output_directory
+            self.logger.debug(f"Using output directory: {base_output_dir}")
 
             # Create meaningful base name from API name
             if base_name is None:
@@ -80,17 +86,17 @@ class PostmanProcessor:
             self._finalize_collection_metadata()
 
             # Generate main collection file
-            collection_path = await self._generate_collection_file(base_name)
+            collection_path = await self._generate_collection_file(base_name, base_output_dir)
             output_paths["collection"] = collection_path
 
             # Generate single environment file
             if self._consolidated_environment:
-                env_path = await self._generate_environment_file(base_name)
+                env_path = await self._generate_environment_file(base_name, base_output_dir)
                 output_paths["environment"] = env_path
 
             # Conditionally generate consolidated documentation
             if generate_docs:
-                docs_path = await self._generate_consolidated_documentation(base_name)
+                docs_path = await self._generate_consolidated_documentation(base_name, base_output_dir)
                 output_paths["documentation"] = docs_path
                 self.logger.info(f"✅ Generated Postman documentation")
             else:
@@ -104,6 +110,10 @@ class PostmanProcessor:
         except Exception as e:
             self.logger.error(f"Collection finalization failed: {e}")
             raise
+
+    def set_output_directory(self, output_directory: Path):
+        """Set the output directory for this processor instance"""
+        self._output_directory = output_directory
 
     def _create_clean_filename(self, name: str) -> str:
         """Create a clean filename from API name"""
@@ -215,10 +225,9 @@ class PostmanProcessor:
         self._consolidated_collection["info"]["description"] = " ".join(
             description_parts)
 
-    async def _generate_collection_file(self, base_name: str) -> Path:
+    async def _generate_collection_file(self, base_name: str, base_output_dir: Path) -> Path:
         """Generate the consolidated collection file"""
-        output_path = self.settings.output_directory / \
-            "postman" / f"{base_name}.json"
+        output_path = base_output_dir / "postman" / f"{base_name}.json"
 
         # Format collection for Postman v2.1 schema
         formatted_collection = self._format_postman_collection(
@@ -233,12 +242,11 @@ class PostmanProcessor:
             f"✅ Consolidated collection file generated: {result_path}")
         return result_path
 
-    async def _generate_environment_file(self, base_name: str) -> Path:
+    async def _generate_environment_file(self, base_name: str, base_output_dir: Path) -> Path:
         """Generate single environment file"""
         # Create meaningful environment name
         env_base_name = base_name.replace("_collection_", "_environment_")
-        output_path = self.settings.output_directory / \
-            "postman" / f"{env_base_name}.json"
+        output_path = base_output_dir / "postman" / f"{env_base_name}.json"
 
         # Format environment for Postman
         formatted_env = self._format_postman_environment(
@@ -252,12 +260,11 @@ class PostmanProcessor:
         self.logger.info(f"✅ Environment file generated: {result_path}")
         return result_path
 
-    async def _generate_consolidated_documentation(self, base_name: str) -> Path:
+    async def _generate_consolidated_documentation(self, base_name: str, base_output_dir: Path) -> Path:
         """Generate consolidated documentation for the entire collection"""
         # Create meaningful documentation name
         doc_base_name = base_name.replace("_collection_", "_guide_")
-        output_path = self.settings.output_directory / \
-            "postman" / f"{doc_base_name}.md"
+        output_path = base_output_dir / "postman" / f"{doc_base_name}.md"
 
         # Generate comprehensive documentation
         documentation = self._create_consolidated_documentation()
@@ -442,4 +449,5 @@ class PostmanProcessor:
         self._total_requests = 0
         self._all_folders = []
         self._api_name = "API"  # Reset to default
+        self._output_directory = None  # Reset output directory
         self.logger.info("✅ Reset processor state for new collection")

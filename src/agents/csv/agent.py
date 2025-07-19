@@ -53,12 +53,16 @@ class CsvAgent(BaseAgent):
             test_cases = llm_output.get("test_cases", [])
             metadata = llm_output.get("metadata", {})
 
-            # Generate CSV file using processor
+            # Extract output directory from agent config
+            output_directory = input_data.agent_config.get("output_directory")
+
+            # Generate CSV file using processor with proper output directory
             csv_file_path = await self.csv_processor.generate_csv_file(
                 test_cases=test_cases,
                 section_id=input_data.section.section_id,
                 headers=metadata.get(
-                    "csv_headers", self.csv_processor.get_default_headers())
+                    "csv_headers", self.csv_processor.get_default_headers()),
+                output_directory=output_directory
             )
 
             # Validate the generated CSV
@@ -81,7 +85,8 @@ class CsvAgent(BaseAgent):
                     "test_distribution": metadata.get("test_distribution", {}),
                     "validation_passed": is_valid,
                     "section_name": input_data.section.name,
-                    "endpoints_processed": len(input_data.section.endpoints)
+                    "endpoints_processed": len(input_data.section.endpoints),
+                    "output_directory": str(output_directory) if output_directory else None
                 }
             )
 

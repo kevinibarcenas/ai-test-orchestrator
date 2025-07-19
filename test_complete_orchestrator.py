@@ -73,7 +73,7 @@ async def test_complete_orchestrator():
 
             # Processing configuration
             parallel_processing=True,         # ⚡ Enable parallel execution
-            max_tokens_per_section=35000
+            max_tokens_per_section=50000
         )
 
         print(f"\n🔧 Configuration:")
@@ -266,7 +266,7 @@ async def test_without_documentation():
         # Create orchestrator input with documentation DISABLED
         orchestrator_input = OrchestratorInput(
             swagger_file=swagger_file,
-            user_prompt="Generate comprehensive, production-ready test artifacts with excellent coverage of CRUD operations, authentication, error handling, and edge cases. Create professional test cases for QMetry import, BDD scenarios for Karate framework, and enterprise-grade Postman collections for API automation, Generate test artifacts without documentation.",
+            user_prompt="Generate comprehensive, production-ready test cases and artifacts with at least 80 percent coverage of CRUD operations, authentication, error handling, and edge cases. Create professional test cases for QMetry import, BDD scenarios for Karate framework, and enterprise-grade Postman collections for API automation, Generate test artifacts without documentation.",
             output_directory=Path("outputs/no_docs"),
             sectioning_strategy=SectioningStrategy.AUTO,
 

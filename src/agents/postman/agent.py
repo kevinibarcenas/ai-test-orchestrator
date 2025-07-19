@@ -73,6 +73,13 @@ class PostmanAgent(BaseAgent):
             self.logger.info(
                 f"Documentation generation: {'enabled' if generate_docs else 'disabled'}")
 
+            # Extract output directory from agent config and set it on the processor
+            output_directory = input_data.agent_config.get("output_directory")
+            if output_directory:
+                self.postman_processor.set_output_directory(output_directory)
+                self.logger.debug(
+                    f"Set Postman processor output directory: {output_directory}")
+
             # Add this section to the consolidated collection (no files generated yet)
             await self.postman_processor.generate_collection_files(
                 collection_data=collection_data,
@@ -107,7 +114,8 @@ class PostmanAgent(BaseAgent):
                     "section_name": input_data.section.name,
                     "endpoints_processed": len(input_data.section.endpoints),
                     "consolidated": True,  # Flag to indicate this is part of a consolidated collection
-                    "documentation_generation": generate_docs
+                    "documentation_generation": generate_docs,
+                    "output_directory": str(output_directory) if output_directory else None
                 }
             )
 

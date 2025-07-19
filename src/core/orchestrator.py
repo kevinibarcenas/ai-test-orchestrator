@@ -41,6 +41,8 @@ class TestOrchestrator:
         start_time = time.time()
 
         self.logger.info(f"🚀 Starting orchestration execution: {execution_id}")
+        self.logger.info(
+            f"📁 Output directory: {orchestrator_input.output_directory}")
         self.logger.info(f"📋 Documentation settings: Master={orchestrator_input.generate_documentation}, "
                          f"CSV={orchestrator_input.generate_csv_docs}, "
                          f"Karate={orchestrator_input.generate_karate_docs}, "
@@ -124,7 +126,7 @@ class TestOrchestrator:
         return file_ids
 
     def _create_agent_input(self, section_data: Dict, orchestrator_input: OrchestratorInput, file_ids: Dict) -> AgentInput:
-        """Create AgentInput with proper configuration including documentation flags"""
+        """Create AgentInput with proper configuration including documentation flags and output directory"""
         section = self._create_section_from_data(section_data)
 
         return AgentInput(
@@ -140,6 +142,9 @@ class TestOrchestrator:
                 "generate_karate_docs": orchestrator_input.generate_karate_docs,
                 "generate_postman_docs": orchestrator_input.generate_postman_docs,
 
+                # Output directory - CRITICAL FIX
+                "output_directory": orchestrator_input.output_directory,
+
                 # Processing configuration
                 "max_tokens_per_section": orchestrator_input.max_tokens_per_section,
                 "sectioning_strategy": orchestrator_input.sectioning_strategy.value,
@@ -153,7 +158,7 @@ class TestOrchestrator:
         sections: List[Dict],
         file_ids: Dict[str, Optional[str]]
     ) -> Dict[str, List]:
-        """Execute enabled agents for all sections with Postman consolidation"""
+        """Execute enabled agents for all sections with improved parallel processing and Postman consolidation"""
         results = {"csv": [], "karate": [], "postman": []}
 
         # Create SHARED Postman agent instance if generating Postman collections
@@ -162,6 +167,9 @@ class TestOrchestrator:
             shared_postman_agent = self.agent_factory.create_postman_agent()
             # Reset the processor state for a fresh collection
             shared_postman_agent.postman_processor.reset_state()
+            # Set output directory on the processor
+            shared_postman_agent.postman_processor.set_output_directory(
+                orchestrator_input.output_directory)
 
         # Create agent inputs for each section with proper configuration
         agent_inputs = []
@@ -170,9 +178,9 @@ class TestOrchestrator:
                 section_data, orchestrator_input, file_ids)
             agent_inputs.append(agent_input)
 
-        # Execute agents based on configuration
+        # Execute agents based on configuration with improved parallel processing
         if orchestrator_input.parallel_processing:
-            await self._execute_agents_parallel_with_shared(orchestrator_input, agent_inputs, results, shared_postman_agent)
+            await self._execute_agents_true_parallel(orchestrator_input, agent_inputs, results, shared_postman_agent)
         else:
             await self._execute_agents_sequential_with_shared(orchestrator_input, agent_inputs, results, shared_postman_agent)
 
@@ -182,13 +190,72 @@ class TestOrchestrator:
 
         return results
 
+    async def _execute_agents_true_parallel(
+        self,
+        orchestrator_input: OrchestratorInput,
+        agent_inputs: List[AgentInput],
+        results: Dict[str, List],
+        shared_postman_agent: Any
+    ) -> None:
+        """Execute CSV and Karate agents in true parallel, Postman sequentially for state management"""
+
+        # Phase 1: Execute CSV and Karate agents in parallel
+        parallel_tasks = []
+
+        for agent_input in agent_inputs:
+            if orchestrator_input.generate_csv:
+                csv_agent = self.agent_factory.create_csv_agent()
+                parallel_tasks.append(
+                    ("csv", agent_input.section.name, csv_agent.execute(agent_input)))
+
+            if orchestrator_input.generate_karate:
+                karate_agent = self.agent_factory.create_karate_agent()
+                parallel_tasks.append(
+                    ("karate", agent_input.section.name, karate_agent.execute(agent_input)))
+
+        # Execute parallel tasks in batches
+        if parallel_tasks:
+            self.logger.info(
+                f"🚀 Executing {len(parallel_tasks)} parallel tasks (CSV + Karate)")
+            batch_size = self.settings.max_concurrent_agents
+
+            for i in range(0, len(parallel_tasks), batch_size):
+                batch = parallel_tasks[i:i + batch_size]
+                self.logger.info(
+                    f"Processing batch {i//batch_size + 1}: {len(batch)} tasks")
+
+                batch_results = await asyncio.gather(*[task[2] for task in batch], return_exceptions=True)
+
+                # Process results
+                for (agent_type, section_name, _), result in zip(batch, batch_results):
+                    if isinstance(result, Exception):
+                        self.logger.error(
+                            f"❌ {agent_type} agent failed for {section_name}: {result}")
+                    else:
+                        results[agent_type].append(result)
+                        self.logger.info(
+                            f"✅ {agent_type} agent completed for {section_name}")
+
+        # Phase 2: Execute Postman agent sequentially (if enabled) to maintain collection state
+        if orchestrator_input.generate_postman and shared_postman_agent:
+            self.logger.info(
+                "📮 Executing Postman agent sequentially for state consistency")
+            for agent_input in agent_inputs:
+                section_name = agent_input.section.name
+                self.logger.info(
+                    f"Executing Postman agent for {section_name}...")
+                postman_result = await shared_postman_agent.execute(agent_input)
+                results["postman"].append(postman_result)
+                self.logger.info(
+                    f"✅ Postman agent completed for {section_name}")
+
     async def _execute_agents_parallel(
         self,
         orchestrator_input: OrchestratorInput,
         agent_inputs: List[AgentInput],
         results: Dict[str, List]
     ) -> None:
-        """Execute agents in parallel for better performance"""
+        """Execute agents in parallel for better performance (LEGACY METHOD - kept for compatibility)"""
         tasks = []
 
         for agent_input in agent_inputs:
@@ -224,7 +291,7 @@ class TestOrchestrator:
         agent_inputs: List[AgentInput],
         results: Dict[str, List]
     ) -> None:
-        """Execute agents sequentially"""
+        """Execute agents sequentially (LEGACY METHOD - kept for compatibility)"""
         for agent_input in agent_inputs:
             section_name = agent_input.section.name
 
@@ -286,7 +353,7 @@ class TestOrchestrator:
         results: Dict[str, List],
         shared_postman_agent: Any
     ) -> None:
-        """Execute agents in parallel - but Postman agent runs sequentially to maintain state"""
+        """Execute agents in parallel - but Postman agent runs sequentially to maintain state (LEGACY METHOD)"""
         tasks = []
 
         for agent_input in agent_inputs:
@@ -339,13 +406,14 @@ class TestOrchestrator:
             # Use the shared agent's processor
             postman_processor = shared_postman_agent.postman_processor
 
-            # Generate the final consolidated collection with conditional documentation
+            # Generate the final consolidated collection with conditional documentation and proper output directory
             timestamp = self._get_timestamp()
             base_name = f"api_collection_{timestamp}"
 
             generated_files = await postman_processor.finalize_and_export_collection(
                 base_name,
-                generate_docs=generate_docs
+                generate_docs=generate_docs,
+                output_directory=orchestrator_input.output_directory
             )
 
             # Validate the generated collection

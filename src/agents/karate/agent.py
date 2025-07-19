@@ -37,7 +37,7 @@ class KarateAgent(BaseAgent):
         """Build variables for prompt template rendering"""
         base_variables = super().build_prompt_variables(input_data)
 
-        # Add Karate-specific variables
+        # Add Karate-specific variables with emphasis on comprehensive scenario generation
         karate_variables = {
             "feature_name": f"{input_data.section.name} API Tests",
             "framework_version": "1.4.x",
@@ -49,7 +49,10 @@ class KarateAgent(BaseAgent):
             "include_documentation": input_data.agent_config.get("generate_karate_docs", True),
             "include_setup_teardown": False,
             "include_examples": True,
-            "best_practices": True
+            "best_practices": True,
+            "comprehensive_scenarios": True,
+            "scenario_requirement": f"Generate AT LEAST {len(input_data.section.test_cases)} scenarios - one for each test case plus additional edge cases",
+            "endpoint_coverage": f"Ensure all {len(input_data.section.endpoints)} endpoints have comprehensive test coverage"
         }
 
         return {**base_variables, **karate_variables}
@@ -70,7 +73,18 @@ class KarateAgent(BaseAgent):
 
             # Debug scenarios specifically
             scenarios = feature_data.get("scenarios", [])
+            expected_scenarios = len(input_data.section.test_cases)
+
             self.logger.info(f"LLM generated {len(scenarios)} scenarios")
+            self.logger.info(
+                f"Expected at least {expected_scenarios} scenarios based on test cases")
+
+            if len(scenarios) < expected_scenarios:
+                self.logger.warning(
+                    f"⚠️ Scenario shortage: Generated {len(scenarios)} but expected at least {expected_scenarios}. "
+                    "This may indicate insufficient prompt guidance or token limits."
+                )
+
             if scenarios:
                 # Log first 3 scenario names
                 for i, scenario in enumerate(scenarios[:3]):
@@ -87,13 +101,17 @@ class KarateAgent(BaseAgent):
             self.logger.info(
                 f"Documentation generation: {'enabled' if generate_docs else 'disabled'}")
 
-            # Generate feature file using processor with conditional documentation
+            # Extract output directory from agent config
+            output_directory = input_data.agent_config.get("output_directory")
+
+            # Generate feature file using processor with conditional documentation and proper output directory
             generated_files = await self.karate_processor.generate_feature_files(
                 feature_data=feature_data,
                 data_files_data=data_files_data,
                 section_id=input_data.section.section_id,
                 metadata=metadata,
-                generate_docs=generate_docs
+                generate_docs=generate_docs,
+                output_directory=output_directory
             )
 
             # Validate the generated feature file
@@ -116,7 +134,7 @@ class KarateAgent(BaseAgent):
                 feature_files=[str(generated_files.get("feature", ""))],
                 data_files=[str(path) for path in generated_files.values() if str(
                     path).endswith(('.json', '.csv', '.yaml'))],
-                scenario_count=metadata.get("total_scenarios", 0),
+                scenario_count=metadata.get("total_scenarios", len(scenarios)),
                 background_steps=metadata.get("background_steps", []),
                 variables_used=metadata.get("variables_used", []),
                 data_driven_scenarios=metadata.get("data_driven_count", 0),
@@ -131,7 +149,11 @@ class KarateAgent(BaseAgent):
                     "execution_requirements": metadata.get("execution_requirements", {}),
                     "framework_features_used": metadata.get("framework_features_used", []),
                     "documentation_generated": generate_docs,
-                    "documentation_path": documentation_file if generate_docs else None
+                    "documentation_path": documentation_file if generate_docs else None,
+                    "output_directory": str(output_directory) if output_directory else None,
+                    "scenarios_expected": expected_scenarios,
+                    "scenarios_generated": len(scenarios),
+                    "scenario_coverage_ratio": len(scenarios) / max(expected_scenarios, 1)
                 }
             )
 
