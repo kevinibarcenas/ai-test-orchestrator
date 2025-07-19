@@ -10,8 +10,8 @@ sys.path.insert(0, str(project_root))
 
 
 async def test_full_orchestrator():
-    """Test the full orchestrator with real API calls"""
-    print("🚀 Testing Full Orchestrator with Real OpenAI API")
+    """Orchestrator with OpenAI API"""
+    print("🚀 Orchestrator with OpenAI API")
     print("=" * 60)
 
     try:
@@ -32,7 +32,7 @@ async def test_full_orchestrator():
         swagger_dir = Path("test").joinpath("swagger_files")
         if not swagger_dir.exists():
             print(f"❌ Swagger directory not found: {swagger_dir}")
-            print("Please create test-swagger/ directory with your YAML files")
+            print("Please create test/swagger_files/ directory with your YAML files")
             return False
 
         swagger_files = list(swagger_dir.glob("*.yaml")) + \
@@ -61,7 +61,7 @@ async def test_full_orchestrator():
         # Create orchestrator input
         orchestrator_input = OrchestratorInput(
             swagger_file=swagger_file,
-            user_prompt="Focus on generating comprehensive test cases with good coverage of CRUD operations, authentication, and error handling scenarios",
+            user_prompt="Focus ONLY on the /pet endpoint and generating comprehensive test cases with good coverage of CRUD operations, authentication, and error handling scenarios",
             output_directory=Path("outputs/real_test"),
             sectioning_strategy=SectioningStrategy.AUTO,
             generate_csv=True,
@@ -83,7 +83,7 @@ async def test_full_orchestrator():
         # Execute orchestration
         print(f"\n🚀 Starting orchestration...")
         print("This will:")
-        print("1. 📤 Upload Swagger file to OpenAI")
+        print("1. 📄 Pass Swagger file as text")
         print("2. 🔍 Analyze content and create sections")
         print("3. 🧪 Generate test cases for each section")
         print("4. 📊 Compile results and create CSV files")
@@ -166,12 +166,6 @@ async def main():
 
     if success:
         print("\n🎉 SUCCESS! Full orchestrator test completed!")
-        print("\n✅ Your refactored architecture is working with real OpenAI API!")
-        print("\nNext steps:")
-        print("1. Check the generated CSV files in outputs/real_test/")
-        print("2. Implement Karate and Postman agents using the same pattern")
-        print("3. Test with different Swagger files and user prompts")
-        print("4. Optimize prompts and sectioning strategies")
     else:
         print("\n❌ Full orchestrator test failed")
         print("Check the errors above and ensure:")
