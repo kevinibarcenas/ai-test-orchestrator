@@ -19,13 +19,37 @@ class CsvOutput(AgentOutput):
 
 
 class KarateOutput(AgentOutput):
-    """Karate-specific output"""
+    """Karate-specific output with comprehensive feature information"""
     feature_files: List[str] = Field(
-        default_factory=list, description="Generated feature files")
+        default_factory=list, description="Generated .feature files")
     data_files: List[str] = Field(
-        default_factory=list, description="Generated data files")
+        default_factory=list, description="Generated data files (.json, .csv, .yaml)")
     scenario_count: int = Field(
-        default=0, description="Number of scenarios generated")
+        default=0, description="Total number of scenarios generated")
+    background_steps: List[str] = Field(
+        default_factory=list, description="Common background steps")
+    variables_used: List[str] = Field(
+        default_factory=list, description="Variables referenced in feature")
+    data_driven_scenarios: int = Field(
+        default=0, description="Number of Scenario Outline scenarios")
+
+    # Karate-specific metadata
+    framework_version: str = Field(
+        default="1.4.x", description="Target Karate framework version")
+    feature_title: str = Field(
+        default="", description="Generated feature title")
+    tags_used: List[str] = Field(
+        default_factory=list, description="Tags applied to scenarios")
+    http_methods_covered: List[str] = Field(
+        default_factory=list, description="HTTP methods tested")
+
+    # Documentation and setup
+    documentation_file: str = Field(
+        default="", description="Generated documentation file path")
+    setup_requirements: List[str] = Field(
+        default_factory=list, description="Setup requirements for execution")
+    configuration_notes: str = Field(
+        default="", description="Configuration guidance")
 
 
 class PostmanOutput(AgentOutput):

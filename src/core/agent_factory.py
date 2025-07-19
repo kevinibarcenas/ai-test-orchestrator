@@ -28,9 +28,9 @@ class AgentFactory:
             from src.agents.postman.agent import PostmanAgent
             self.register_agent(AgentType.POSTMAN, PostmanAgent)
 
-            # Register other agents as they're implemented
-            # from src.agents.karate.agent import KarateAgent
-            # self.register_agent(AgentType.KARATE, KarateAgent)
+            # Register Karate agent
+            from src.agents.karate.agent import KarateAgent
+            self.register_agent(AgentType.KARATE, KarateAgent)
 
             self.logger.info(
                 f"Registered {len(self._agent_registry)} agent types")
@@ -80,17 +80,11 @@ class AgentFactory:
 
     def create_karate_agent(self, use_cache: bool = False) -> BaseAgent:
         """Create Karate agent instance"""
-        # For now, return a mock agent until Karate agent is implemented
-        return self._create_mock_agent(AgentType.KARATE)
+        return self.create_agent(AgentType.KARATE, use_cache)
 
     def create_postman_agent(self, use_cache: bool = False) -> BaseAgent:
         """Create Postman agent instance"""
         return self.create_agent(AgentType.POSTMAN, use_cache)
-
-    def _create_mock_agent(self, agent_type: AgentType) -> BaseAgent:
-        """Create a mock agent for agents not yet implemented"""
-        from src.agents.base.mock_agent import MockAgent
-        return MockAgent(agent_type)
 
     def get_available_agents(self) -> list[AgentType]:
         """Get list of available agent types"""

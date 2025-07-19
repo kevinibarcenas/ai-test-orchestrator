@@ -203,9 +203,12 @@ def _register_agent_services(container: ServiceContainer):
     container.register_transient(PostmanProcessor, PostmanProcessor)
     container.register_transient(PostmanAgent, PostmanAgent)
 
-    # Register other agents as they're implemented
-    # from src.agents.karate.agent import KarateAgent
-    # container.register_transient(KarateAgent, KarateAgent)
+    # Karate Agent and Processor
+    from src.agents.karate.agent import KarateAgent
+    from src.agents.karate.processors import KarateProcessor
+
+    container.register_transient(KarateProcessor, KarateProcessor)
+    container.register_transient(KarateAgent, KarateAgent)
 
 
 def clear_container():

@@ -46,14 +46,15 @@ class JSONSchemaValidationService(ValidationService):
             self.register_schema("postman_collection_schema",
                                  POSTMAN_COLLECTION_SCHEMA)
 
+            # Import and register Karate schema
+            from src.agents.karate.schemas import KARATE_FEATURE_SCHEMA
+            self.register_schema("karate_feature_schema",
+                                 KARATE_FEATURE_SCHEMA)
+
             # Import and register core orchestrator schemas
             from src.core.schemas import SECTION_ANALYSIS_SCHEMA
             self.register_schema("section_analysis_schema",
                                  SECTION_ANALYSIS_SCHEMA)
-
-            # Import and register other schemas as they're created
-            # from src.agents.karate.schemas import KARATE_FEATURE_SCHEMA
-            # self.register_schema("karate_feature_schema", KARATE_FEATURE_SCHEMA)
 
             self.logger.info(f"Loaded {len(self._schemas)} default schemas")
 

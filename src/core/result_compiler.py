@@ -143,6 +143,25 @@ class ResultCompiler:
         for result in karate_results:
             if isinstance(result, KarateOutput):
                 karate_outputs.append(result)
+            elif hasattr(result, 'agent_type') and result.agent_type.value == 'karate':
+                # Convert AgentOutput to KarateOutput if possible
+                try:
+                    karate_output = KarateOutput(
+                        agent_type=result.agent_type,
+                        section_id=result.section_id,
+                        success=result.success,
+                        artifacts=result.artifacts,
+                        errors=result.errors,
+                        warnings=result.warnings,
+                        metadata=result.metadata,
+                        feature_files=[],  # Will be empty for failed cases
+                        data_files=[],
+                        scenario_count=0
+                    )
+                    karate_outputs.append(karate_output)
+                except Exception as e:
+                    self.logger.warning(
+                        f"Failed to convert AgentOutput to KarateOutput: {e}")
             else:
                 self.logger.warning(
                     f"Invalid Karate result type: {type(result)}")

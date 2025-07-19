@@ -1,0 +1,130 @@
+# src/agents/karate/agent.py
+"""Karate Feature Generation Agent"""
+from typing import Any, Dict
+
+from src.config.dependencies import inject
+from src.agents.base.agent import BaseAgent
+from src.agents.karate.processors import KarateProcessor
+from src.models.base import AgentType
+from src.models.agents import AgentInput
+from src.models.outputs import KarateOutput
+from src.prompts.manager import PromptManager
+from src.services.llm_service import LLMService
+from src.services.validation_service import ValidationService
+
+
+class KarateAgent(BaseAgent):
+    """Agent for generating professional Karate feature files"""
+
+    @inject
+    def __init__(self,
+                 prompt_manager: PromptManager,
+                 llm_service: LLMService,
+                 validation_service: ValidationService,
+                 karate_processor: KarateProcessor):
+        super().__init__(AgentType.KARATE, prompt_manager, llm_service, validation_service)
+        self.karate_processor = karate_processor
+
+    def get_system_prompt_name(self) -> str:
+        """Get the name of the system prompt template"""
+        return "agents/karate/system"
+
+    def get_output_schema_name(self) -> str:
+        """Get the name of the output schema"""
+        return "karate_feature_schema"
+
+    def build_prompt_variables(self, input_data: AgentInput) -> Dict[str, Any]:
+        """Build variables for prompt template rendering"""
+        base_variables = super().build_prompt_variables(input_data)
+
+        # Add Karate-specific variables
+        karate_variables = {
+            "feature_name": f"{input_data.section.name} API Tests",
+            "framework_version": "1.4.x",
+            "test_patterns": ["happy_path", "validation", "error_handling", "edge_cases"],
+            "karate_features": ["data_driven", "scenario_outline", "background", "conditional_logic"],
+            "assertion_types": ["status", "header", "response_time", "schema", "content"],
+            "variable_scoping": ["feature", "scenario", "call"],
+            "data_file_formats": ["json", "csv", "yaml"],
+            "include_documentation": False,
+            "include_setup_teardown": False,
+            "include_examples": True,
+            "best_practices": True
+        }
+
+        return {**base_variables, **karate_variables}
+
+    async def process_llm_output(self, llm_output: Dict[str, Any], input_data: AgentInput) -> KarateOutput:
+        """Process LLM output into Karate feature files"""
+        try:
+            feature_data = llm_output.get("feature_file", {})
+            data_files_data = llm_output.get("data_files", [])
+            metadata = llm_output.get("metadata", {})
+
+            self.logger.debug(
+                f"Feature data keys: {list(feature_data.keys()) if isinstance(feature_data, dict) else 'Not a dict'}")
+            self.logger.debug(
+                f"Data files count: {len(data_files_data) if isinstance(data_files_data, list) else 'Not a list'}")
+            self.logger.debug(
+                f"Metadata keys: {list(metadata.keys()) if isinstance(metadata, dict) else 'Not a dict'}")
+
+            # Debug scenarios specifically
+            scenarios = feature_data.get("scenarios", [])
+            self.logger.info(f"LLM generated {len(scenarios)} scenarios")
+            if scenarios:
+                # Log first 3 scenario names
+                for i, scenario in enumerate(scenarios[:3]):
+                    self.logger.debug(
+                        f"Scenario {i+1}: {scenario.get('name', 'Unnamed scenario')}")
+
+            # Debug metadata totals
+            self.logger.info(
+                f"Metadata claims {metadata.get('total_scenarios', 0)} total scenarios")
+
+            # Generate feature file using processor
+            generated_files = await self.karate_processor.generate_feature_files(
+                feature_data=feature_data,
+                data_files_data=data_files_data,
+                section_id=input_data.section.section_id,
+                metadata=metadata
+            )
+
+            # Validate the generated feature file
+            feature_file = generated_files.get("feature")
+            is_valid = False
+            if feature_file:
+                is_valid = await self.karate_processor.validate_feature_file(feature_file)
+
+            return KarateOutput(
+                agent_type=self.agent_type,
+                section_id=input_data.section.section_id,
+                success=True,
+                # Convert Path to string
+                artifacts=[str(path) for path in generated_files.values()],
+                feature_files=[str(generated_files.get("feature", ""))],
+                data_files=[str(path) for path in generated_files.values() if str(
+                    path).endswith(('.json', '.csv', '.yaml'))],
+                scenario_count=metadata.get("total_scenarios", 0),
+                background_steps=metadata.get("background_steps", []),
+                variables_used=metadata.get("variables_used", []),
+                data_driven_scenarios=metadata.get("data_driven_count", 0),
+                metadata={
+                    "feature_title": feature_data.get("feature_title", ""),
+                    "validation_passed": is_valid,
+                    "section_name": input_data.section.name,
+                    "endpoints_processed": len(input_data.section.endpoints),
+                    "test_coverage": metadata.get("test_coverage", {}),
+                    "karate_version": "1.4.x",
+                    "execution_requirements": metadata.get("execution_requirements", {}),
+                    "framework_features_used": metadata.get("framework_features_used", [])
+                }
+            )
+
+        except Exception as e:
+            self.logger.error(f"Failed to process Karate output: {e}")
+            return KarateOutput(
+                agent_type=self.agent_type,
+                section_id=input_data.section.section_id,
+                success=False,
+                errors=[f"Karate feature generation failed: {str(e)}"]
+            )

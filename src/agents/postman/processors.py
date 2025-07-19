@@ -1,6 +1,7 @@
 # src/agents/postman/processors.py
 """Postman collection processing logic"""
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
@@ -25,6 +26,7 @@ class PostmanProcessor:
         self._consolidated_environment = None
         self._total_requests = 0
         self._all_folders = []
+        self._api_name = "API"  # Will be set from first collection
 
     async def generate_collection_files(
         self,
@@ -62,8 +64,11 @@ class PostmanProcessor:
             if self._consolidated_collection is None:
                 raise ValueError("No collection data to export")
 
-            timestamp = self._get_timestamp()
-            base_name = base_name or f"api_collection_{timestamp}"
+            # Create meaningful base name from API name
+            if base_name is None:
+                clean_api_name = self._create_clean_filename(self._api_name)
+                timestamp = self._get_timestamp()
+                base_name = f"{clean_api_name}_collection_{timestamp}"
 
             output_paths = {}
 
@@ -91,12 +96,32 @@ class PostmanProcessor:
             self.logger.error(f"Collection finalization failed: {e}")
             raise
 
+    def _create_clean_filename(self, name: str) -> str:
+        """Create a clean filename from API name"""
+        # Extract API name from collection title
+        clean = re.sub(r'\s+(API|Collection|Tests?)\s*$',
+                       '', name, flags=re.IGNORECASE)
+        # Replace spaces and special characters with underscores
+        clean = re.sub(r'[^\w\s-]', '', clean)
+        clean = re.sub(r'[-\s]+', '_', clean)
+        # Convert to lowercase and remove trailing underscores
+        clean = clean.lower().strip('_')
+        return clean if clean else "api"
+
     def _initialize_consolidated_collection(self, first_collection: Dict[str, Any]):
         """Initialize the consolidated collection with base structure"""
+        # Extract API name from the first collection
+        collection_name = first_collection.get("name", "API Collection")
+        self._api_name = collection_name.replace(
+            " API Collection", "").replace(" Collection", "")
+
+        # Create a professional collection name
+        consolidated_name = f"{self._api_name} API Collection"
+
         self._consolidated_collection = {
             "info": {
-                "name": first_collection.get("name", "API Collection").replace(" API Collection", "s API Collection"),
-                "description": "Comprehensive API collection with all endpoints organized by functionality",
+                "name": consolidated_name,
+                "description": f"Comprehensive {self._api_name} API collection with all endpoints organized by functionality",
                 "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
                 "_postman_id": self._generate_uuid(),
                 "version": first_collection.get("version", "1.0.0")
@@ -107,7 +132,8 @@ class PostmanProcessor:
             "event": first_collection.get("event", [])
         }
 
-        self.logger.info("✅ Initialized consolidated collection")
+        self.logger.info(
+            f"✅ Initialized consolidated collection: {consolidated_name}")
 
     def _add_section_to_collection(self, section_collection: Dict[str, Any], section_id: str, metadata: Dict[str, Any]):
         """Add a section as a folder to the consolidated collection"""
@@ -116,10 +142,14 @@ class PostmanProcessor:
         if not section_items:
             return
 
+        # Create a meaningful folder name
+        section_name = metadata.get("section_name", section_id)
+        folder_name = self._create_readable_folder_name(section_name)
+
         # Create a folder for this section
         section_folder = {
-            "name": metadata.get("section_name", f"Section {section_id}"),
-            "description": metadata.get("section_description", "API endpoints for this functional area"),
+            "name": folder_name,
+            "description": metadata.get("section_description", f"API endpoints for {folder_name}"),
             "item": section_items
         }
 
@@ -133,6 +163,17 @@ class PostmanProcessor:
 
         self.logger.info(
             f"✅ Added section '{section_folder['name']}' with {request_count} requests")
+
+    def _create_readable_folder_name(self, section_name: str) -> str:
+        """Create a readable folder name from section name"""
+        # Remove common prefixes
+        clean = re.sub(r'^(section_|api_|test_)', '',
+                       section_name, flags=re.IGNORECASE)
+        # Split on underscores and capitalize words
+        words = clean.replace('_', ' ').replace('-', ' ').split()
+        # Capitalize each word and join
+        readable = ' '.join(word.capitalize() for word in words if word)
+        return readable if readable else "API Endpoints"
 
     def _merge_environment_variables(self, new_env_data: Dict[str, Any]):
         """Merge new environment variables into the consolidated environment"""
@@ -156,7 +197,7 @@ class PostmanProcessor:
 
         # Update collection description with summary
         description_parts = [
-            "Comprehensive API collection with all endpoints organized by functionality.",
+            f"Comprehensive {self._api_name} API collection with all endpoints organized by functionality.",
             f"Total requests: {self._total_requests}",
             f"Organized into {len(self._all_folders)} functional areas: {', '.join(self._all_folders[:3])}{'...' if len(self._all_folders) > 3 else ''}",
             "Uses environment variables for easy deployment across different environments."
@@ -185,12 +226,14 @@ class PostmanProcessor:
 
     async def _generate_environment_file(self, base_name: str) -> Path:
         """Generate single environment file"""
+        # Create meaningful environment name
+        env_base_name = base_name.replace("_collection_", "_environment_")
         output_path = self.settings.output_directory / \
-            "postman" / f"{base_name}_environment.json"
+            "postman" / f"{env_base_name}.json"
 
         # Format environment for Postman
         formatted_env = self._format_postman_environment(
-            self._consolidated_environment)
+            self._consolidated_environment, base_name)
 
         # Export environment file
         result_path = await self.export_service.export_json(
@@ -202,8 +245,10 @@ class PostmanProcessor:
 
     async def _generate_consolidated_documentation(self, base_name: str) -> Path:
         """Generate consolidated documentation for the entire collection"""
+        # Create meaningful documentation name
+        doc_base_name = base_name.replace("_collection_", "_guide_")
         output_path = self.settings.output_directory / \
-            "postman" / f"{base_name}_README.md"
+            "postman" / f"{doc_base_name}.md"
 
         # Generate comprehensive documentation
         documentation = self._create_consolidated_documentation()
@@ -314,11 +359,14 @@ class PostmanProcessor:
         """Format collection data to Postman v2.1 schema"""
         return collection_data
 
-    def _format_postman_environment(self, env_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _format_postman_environment(self, env_data: Dict[str, Any], base_name: str) -> Dict[str, Any]:
         """Format environment data to Postman environment schema"""
+        # Create meaningful environment name
+        env_name = f"{self._api_name} API Environment"
+
         return {
             "id": self._generate_uuid(),
-            "name": env_data.get("name", "API Environment"),
+            "name": env_name,
             "values": env_data.get("values", []),
             "_postman_variable_scope": "environment",
             "_postman_exported_at": datetime.now().isoformat() + "Z",
@@ -384,4 +432,5 @@ class PostmanProcessor:
         self._consolidated_environment = None
         self._total_requests = 0
         self._all_folders = []
+        self._api_name = "API"  # Reset to default
         self.logger.info("✅ Reset processor state for new collection")

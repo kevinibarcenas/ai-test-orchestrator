@@ -1,4 +1,4 @@
-"""Refactored CSV agent using dependency injection and external prompts"""
+"""CSV agent using dependency injection and external prompts"""
 from typing import Any, Dict
 
 from src.config.dependencies import inject
