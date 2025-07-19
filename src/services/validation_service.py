@@ -41,6 +41,12 @@ class JSONSchemaValidationService(ValidationService):
             from src.agents.csv.schemas import CSV_TEST_CASE_SCHEMA
             self.register_schema("csv_test_case_schema", CSV_TEST_CASE_SCHEMA)
 
+            # Import and register Postman schema
+            from src.agents.postman.schemas import POSTMAN_COLLECTION_SCHEMA
+            self.register_schema("postman_collection_schema",
+                                 POSTMAN_COLLECTION_SCHEMA)
+
+            # Import and register core orchestrator schemas
             from src.core.schemas import SECTION_ANALYSIS_SCHEMA
             self.register_schema("section_analysis_schema",
                                  SECTION_ANALYSIS_SCHEMA)

@@ -2,7 +2,7 @@ import asyncio
 from pathlib import Path
 import time
 import uuid
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from src.config.dependencies import inject
 from src.config.settings import Settings
@@ -125,8 +125,15 @@ class TestOrchestrator:
         sections: List[Dict],
         file_ids: Dict[str, Optional[str]]
     ) -> Dict[str, List]:
-        """Execute enabled agents for all sections"""
+        """Execute enabled agents for all sections with Postman consolidation"""
         results = {"csv": [], "karate": [], "postman": []}
+
+        # Create SHARED Postman agent instance if generating Postman collections
+        shared_postman_agent = None
+        if orchestrator_input.generate_postman:
+            shared_postman_agent = self.agent_factory.create_postman_agent()
+            # Reset the processor state for a fresh collection
+            shared_postman_agent.postman_processor.reset_state()
 
         # Create agent inputs for each section
         agent_inputs = []
@@ -145,9 +152,13 @@ class TestOrchestrator:
 
         # Execute agents based on configuration
         if orchestrator_input.parallel_processing:
-            await self._execute_agents_parallel(orchestrator_input, agent_inputs, results)
+            await self._execute_agents_parallel_with_shared(orchestrator_input, agent_inputs, results, shared_postman_agent)
         else:
-            await self._execute_agents_sequential(orchestrator_input, agent_inputs, results)
+            await self._execute_agents_sequential_with_shared(orchestrator_input, agent_inputs, results, shared_postman_agent)
+
+        # POSTMAN FINALIZATION: Generate consolidated collection after all sections are processed
+        if orchestrator_input.generate_postman and results["postman"] and shared_postman_agent:
+            await self._finalize_postman_collection(orchestrator_input, results, shared_postman_agent)
 
         return results
 
@@ -256,3 +267,149 @@ class TestOrchestrator:
             output_directory=output_dir
         )
         return await self.execute(orchestrator_input)
+
+    async def _execute_agents_sequential_with_shared(
+        self,
+        orchestrator_input: OrchestratorInput,
+        agent_inputs: List[AgentInput],
+        results: Dict[str, List],
+        shared_postman_agent: Any
+    ) -> None:
+        """Execute agents sequentially using shared Postman agent instance"""
+        for agent_input in agent_inputs:
+            section_name = agent_input.section.name
+
+            if orchestrator_input.generate_csv:
+                self.logger.info(f"Executing CSV agent for {section_name}...")
+                csv_agent = self.agent_factory.create_csv_agent()
+                csv_result = await csv_agent.execute(agent_input)
+                results["csv"].append(csv_result)
+
+            if orchestrator_input.generate_karate:
+                self.logger.info(
+                    f"Executing Karate agent for {section_name}...")
+                karate_agent = self.agent_factory.create_karate_agent()
+                karate_result = await karate_agent.execute(agent_input)
+                results["karate"].append(karate_result)
+
+            if orchestrator_input.generate_postman and shared_postman_agent:
+                self.logger.info(
+                    f"Executing Postman agent for {section_name}...")
+                # Use the SHARED agent instance to maintain state
+                postman_result = await shared_postman_agent.execute(agent_input)
+                results["postman"].append(postman_result)
+
+    async def _execute_agents_parallel_with_shared(
+        self,
+        orchestrator_input: OrchestratorInput,
+        agent_inputs: List[AgentInput],
+        results: Dict[str, List],
+        shared_postman_agent: Any
+    ) -> None:
+        """Execute agents in parallel - but Postman agent runs sequentially to maintain state"""
+        tasks = []
+
+        for agent_input in agent_inputs:
+            if orchestrator_input.generate_csv:
+                csv_agent = self.agent_factory.create_csv_agent()
+                tasks.append(("csv", csv_agent.execute(agent_input)))
+
+            if orchestrator_input.generate_karate:
+                karate_agent = self.agent_factory.create_karate_agent()
+                tasks.append(("karate", karate_agent.execute(agent_input)))
+
+        # Execute CSV and Karate in parallel
+        if tasks:
+            batch_size = self.settings.max_concurrent_agents
+            for i in range(0, len(tasks), batch_size):
+                batch = tasks[i:i + batch_size]
+                batch_results = await asyncio.gather(*[task[1] for task in batch], return_exceptions=True)
+
+                # Process results
+                for (agent_type, _), result in zip(batch, batch_results):
+                    if isinstance(result, Exception):
+                        self.logger.error(
+                            f"{agent_type} agent failed: {result}")
+                    else:
+                        results[agent_type].append(result)
+                        self.logger.info(f"✅ {agent_type} agent completed")
+
+        # Execute Postman agent SEQUENTIALLY to maintain collection state
+        if orchestrator_input.generate_postman and shared_postman_agent:
+            for agent_input in agent_inputs:
+                section_name = agent_input.section.name
+                self.logger.info(
+                    f"Executing Postman agent for {section_name}...")
+                postman_result = await shared_postman_agent.execute(agent_input)
+                results["postman"].append(postman_result)
+
+    async def _finalize_postman_collection(
+        self,
+        orchestrator_input: OrchestratorInput,
+        results: Dict[str, List],
+        shared_postman_agent: Any
+    ) -> None:
+        """Finalize and export the consolidated Postman collection"""
+        try:
+            self.logger.info("📮 Finalizing consolidated Postman collection...")
+
+            # Use the shared agent's processor
+            postman_processor = shared_postman_agent.postman_processor
+
+            # Generate the final consolidated collection
+            timestamp = self._get_timestamp()
+            base_name = f"api_collection_{timestamp}"
+
+            generated_files = await postman_processor.finalize_and_export_collection(base_name)
+
+            # Validate the generated collection
+            collection_path = generated_files.get("collection")
+            is_valid = False
+            if collection_path:
+                is_valid = await postman_processor.validate_collection(collection_path)
+
+            # Update all Postman outputs with the final file information
+            for postman_output in results["postman"]:
+                # Update with actual file paths
+                artifacts = [str(path) for path in generated_files.values()]
+                postman_output.artifacts = artifacts
+                postman_output.collection_file = str(
+                    generated_files.get("collection", ""))
+
+                # Environment files (just one now)
+                env_files = [str(generated_files["environment"])
+                             ] if "environment" in generated_files else []
+                postman_output.environment_files = env_files
+
+                # Update metadata
+                postman_output.metadata["validation_passed"] = is_valid
+                postman_output.metadata["generated_files"] = list(
+                    generated_files.keys())
+                postman_output.metadata["finalized"] = True
+
+            # Update the first output with consolidated metrics
+            if results["postman"]:
+                first_output = results["postman"][0]
+                first_output.request_count = postman_processor._total_requests
+                first_output.folder_count = len(postman_processor._all_folders)
+                first_output.environment_count = 1  # Single environment now
+
+                first_output.metadata[
+                    "collection_summary"] = f"Consolidated collection with {postman_processor._total_requests} requests across {len(postman_processor._all_folders)} functional areas"
+                first_output.metadata["folder_structure"] = postman_processor._all_folders
+
+            self.logger.info(
+                f"✅ Consolidated Postman collection finalized: {len(generated_files)} files generated")
+
+        except Exception as e:
+            self.logger.error(f"❌ Postman collection finalization failed: {e}")
+            # Mark all Postman outputs as failed
+            for postman_output in results["postman"]:
+                postman_output.success = False
+                postman_output.errors.append(
+                    f"Collection finalization failed: {str(e)}")
+
+    def _get_timestamp(self) -> str:
+        """Get timestamp for filename"""
+        from datetime import datetime
+        return datetime.now().strftime("%Y%m%d_%H%M%S")

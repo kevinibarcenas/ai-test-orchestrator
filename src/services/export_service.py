@@ -21,6 +21,11 @@ class ExportService(ABC):
         """Export data to JSON file"""
         pass
 
+    @abstractmethod
+    async def export_text(self, text: str, output_path: Path) -> Path:
+        """Export text content to file"""
+        pass
+
 
 class FileExportService(ExportService):
     """File-based export service implementation"""
@@ -74,4 +79,20 @@ class FileExportService(ExportService):
 
         except Exception as e:
             self.logger.error(f"JSON export failed: {e}")
+            raise
+
+    async def export_text(self, text: str, output_path: Path) -> Path:
+        """Export text content to file"""
+        try:
+            # Ensure output directory exists
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(output_path, 'w', encoding='utf-8') as textfile:
+                textfile.write(text)
+
+            self.logger.info(f"Exported text content to: {output_path}")
+            return output_path
+
+        except Exception as e:
+            self.logger.error(f"Text export failed: {e}")
             raise

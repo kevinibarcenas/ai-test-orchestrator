@@ -196,12 +196,16 @@ def _register_agent_services(container: ServiceContainer):
     container.register_transient(CSVProcessor, CSVProcessor)
     container.register_transient(CsvAgent, CsvAgent)
 
+    # Postman Agent and Processor
+    from src.agents.postman.agent import PostmanAgent
+    from src.agents.postman.processors import PostmanProcessor
+
+    container.register_transient(PostmanProcessor, PostmanProcessor)
+    container.register_transient(PostmanAgent, PostmanAgent)
+
     # Register other agents as they're implemented
     # from src.agents.karate.agent import KarateAgent
     # container.register_transient(KarateAgent, KarateAgent)
-
-    # from src.agents.postman.agent import PostmanAgent
-    # container.register_transient(PostmanAgent, PostmanAgent)
 
 
 def clear_container():
