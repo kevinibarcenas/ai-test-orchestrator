@@ -1,0 +1,33 @@
+## Security Testing Focus Areas:
+
+When generating test cases with security considerations:
+
+### Authentication Testing:
+- Valid/invalid token scenarios
+- Token expiration handling
+- Missing authentication headers
+- Malformed authorization data
+
+### Authorization Testing:
+- Role-based access control
+- Permission boundary testing
+- Privilege escalation attempts
+- Cross-user data access prevention
+
+### Input Security:
+- SQL injection attempts
+- XSS payload testing
+- Command injection scenarios
+- Path traversal attempts
+
+### Data Protection:
+- Sensitive data masking
+- HTTPS enforcement
+- Data encryption validation
+- PII handling compliance
+
+Include security test cases when testing endpoints that:
+- Handle user authentication
+- Process sensitive data
+- Perform administrative functions
+- Accept user input for database operations
