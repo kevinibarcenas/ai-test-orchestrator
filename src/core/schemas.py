@@ -55,7 +55,7 @@ SECTION_ANALYSIS_SCHEMA = {
                                     "items": {"type": "string"}
                                 }
                             },
-                            "required": ["path", "method"],
+                            "required": ["path", "method", "summary", "tags"],
                             "additionalProperties": False
                         }
                     },
@@ -76,7 +76,7 @@ SECTION_ANALYSIS_SCHEMA = {
                                 },
                                 "description": {"type": "string"}
                             },
-                            "required": ["name", "test_type"],
+                            "required": ["name", "test_type", "priority", "description"],
                             "additionalProperties": False
                         }
                     },
@@ -97,7 +97,7 @@ SECTION_ANALYSIS_SCHEMA = {
                         "description": "Processing priority for this section"
                     }
                 },
-                "required": ["section_id", "name", "description", "endpoints", "test_cases", "estimated_tokens"],
+                "required": ["section_id", "name", "description", "endpoints", "test_cases", "estimated_tokens", "complexity_score", "priority"],
                 "additionalProperties": False
             }
         }

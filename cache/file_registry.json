@@ -1,0 +1,15 @@
+{
+  "files": {
+    "5cdc7e9d57414d449b386d8fe0348504783a93f00ee2b2d557e579fee66f7ffe": {
+      "file_id": "file-Nu2kdzoMoGi4YGeXunnqcb",
+      "filename": "pet_store.yaml",
+      "file_path": "test/swagger_files/pet_store.yaml",
+      "file_hash": "5cdc7e9d57414d449b386d8fe0348504783a93f00ee2b2d557e579fee66f7ffe",
+      "file_size": 24987,
+      "mime_type": "application/octet-stream",
+      "upload_timestamp": 1752927441.3988,
+      "purpose": "user_data"
+    }
+  },
+  "version": "1.0"
+}

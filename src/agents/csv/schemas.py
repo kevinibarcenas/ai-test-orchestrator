@@ -68,8 +68,12 @@ CSV_TEST_CASE_SCHEMA = {
                     "module",
                     "test_type",
                     "priority",
+                    "estimated_time",
+                    "preconditions",
                     "test_steps",
-                    "expected_results"
+                    "expected_results",
+                    "test_data",
+                    "tags"
                 ],
                 "additionalProperties": False
             }
@@ -101,6 +105,8 @@ CSV_TEST_CASE_SCHEMA = {
                         "performance": {"type": "integer", "minimum": 0},
                         "boundary": {"type": "integer", "minimum": 0}
                     },
+                    "required": ["functional", "integration", "negative", "security", "performance", "boundary"],
+                    "additionalProperties": False,
                     "description": "Distribution of test cases by type"
                 },
                 "coverage_analysis": {
@@ -115,6 +121,8 @@ CSV_TEST_CASE_SCHEMA = {
                             "description": "Areas that may need additional test coverage"
                         }
                     },
+                    "required": ["endpoints_covered", "total_endpoints", "coverage_percentage", "uncovered_areas"],
+                    "additionalProperties": False,
                     "description": "Analysis of test coverage provided"
                 },
                 "quality_metrics": {
@@ -124,10 +132,12 @@ CSV_TEST_CASE_SCHEMA = {
                         "detailed_test_data_count": {"type": "integer", "minimum": 0},
                         "validation_points_count": {"type": "integer", "minimum": 0}
                     },
+                    "required": ["avg_steps_per_test", "detailed_test_data_count", "validation_points_count"],
+                    "additionalProperties": False,
                     "description": "Quality metrics for generated test cases"
                 }
             },
-            "required": ["coverage_summary", "total_test_cases"],
+            "required": ["coverage_summary", "total_test_cases", "csv_headers", "test_distribution", "coverage_analysis", "quality_metrics"],
             "additionalProperties": False
         }
     },
@@ -161,7 +171,7 @@ CSV_VALIDATION_SCHEMA = {
                     "items": {"type": "string"}
                 }
             },
-            "required": ["required_headers_present"],
+            "required": ["required_headers_present", "missing_headers", "extra_headers"],
             "additionalProperties": False
         },
         "content_validation": {
@@ -171,6 +181,7 @@ CSV_VALIDATION_SCHEMA = {
                 "malformed_test_steps": {"type": "integer", "minimum": 0},
                 "missing_test_data": {"type": "integer", "minimum": 0}
             },
+            "required": ["empty_required_fields", "malformed_test_steps", "missing_test_data"],
             "additionalProperties": False
         },
         "errors": {
@@ -184,6 +195,6 @@ CSV_VALIDATION_SCHEMA = {
             "description": "Validation warning messages"
         }
     },
-    "required": ["is_valid", "row_count"],
+    "required": ["is_valid", "row_count", "header_validation", "content_validation", "errors", "warnings"],
     "additionalProperties": False
 }
