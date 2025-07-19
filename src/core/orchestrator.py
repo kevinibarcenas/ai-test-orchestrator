@@ -90,18 +90,24 @@ class TestOrchestrator:
             )
 
     async def _upload_input_files(self, orchestrator_input: OrchestratorInput) -> Dict[str, Optional[str]]:
-        """Upload input files and return file IDs"""
-        file_ids = {"swagger": None, "pdf": None}
+        """Upload input files and return file IDs - Only upload PDFs, read YAML as text"""
+        file_ids = {"swagger": None, "pdf": None, "swagger_content": None}
 
+        # For Swagger/YAML files: Read content as text instead of uploading
         if orchestrator_input.swagger_file:
             self.logger.info(
-                f"Uploading Swagger file: {orchestrator_input.swagger_file.name}")
-            swagger_info = await self.file_manager.upload_file(
-                orchestrator_input.swagger_file, purpose="user_data"
-            )
-            file_ids["swagger"] = swagger_info.file_id
-            self.logger.info(f"✅ Swagger uploaded: {swagger_info.file_id}")
+                f"Reading Swagger file as text: {orchestrator_input.swagger_file.name}")
+            try:
+                with open(orchestrator_input.swagger_file, 'r', encoding='utf-8') as f:
+                    swagger_content = f.read()
+                file_ids["swagger_content"] = swagger_content
+                self.logger.info(
+                    f"✅ Swagger content read: {len(swagger_content)} characters")
+            except Exception as e:
+                self.logger.error(f"❌ Failed to read Swagger file: {e}")
+                raise
 
+        # For PDF files: Upload them to get file IDs (as they're supported by Responses API)
         if orchestrator_input.pdf_file:
             self.logger.info(
                 f"Uploading PDF file: {orchestrator_input.pdf_file.name}")
@@ -128,8 +134,11 @@ class TestOrchestrator:
             section = self._create_section_from_data(section_data)
             agent_input = AgentInput(
                 section=section,
+                # Will be None with new approach
                 swagger_file_id=file_ids.get("swagger"),
                 pdf_file_id=file_ids.get("pdf"),
+                # New field for text content
+                swagger_content=file_ids.get("swagger_content"),
                 user_prompt=orchestrator_input.user_prompt
             )
             agent_inputs.append(agent_input)

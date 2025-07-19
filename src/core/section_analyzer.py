@@ -104,13 +104,14 @@ class SectionAnalyzer:
         # Build user content with file attachments
         user_content = []
 
-        # Add file inputs
-        if file_ids.get("swagger"):
+        # For Swagger files: Use text content instead of file ID
+        if file_ids.get("swagger_content"):
             user_content.append({
-                "type": "input_file",
-                "file_id": file_ids["swagger"]
+                "type": "input_text",
+                "text": f"## Swagger/OpenAPI Specification\n\n```yaml\n{file_ids['swagger_content']}\n```"
             })
 
+        # For PDF files: Use file ID (supported by Responses API)
         if file_ids.get("pdf"):
             user_content.append({
                 "type": "input_file",

@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator
 
+from models.agents import Section
+
 
 class AgentType(str, Enum):
     """Available agent types"""
@@ -86,12 +88,18 @@ class TestSection(BaseModel):
 
 
 class AgentInput(BaseModel):
-    """Base input for all agents"""
-    section: TestSection = Field(..., description="Test section to process")
+    """Input data for agents"""
+    section: Section = Field(..., description="Section to process")
+    user_prompt: Optional[str] = Field(
+        None, description="User instructions and focus areas")
+    # File references
     swagger_file_id: Optional[str] = Field(
         None, description="OpenAI file ID for swagger")
     pdf_file_id: Optional[str] = Field(
         None, description="OpenAI file ID for PDF")
+    # Text content (for YAML files that don't need upload)
+    swagger_content: Optional[str] = Field(
+        None, description="Raw Swagger/YAML content as text")
     templates: Dict[str, Any] = Field(
         default_factory=dict, description="Template configurations")
     context: Dict[str, Any] = Field(

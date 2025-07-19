@@ -41,6 +41,10 @@ class JSONSchemaValidationService(ValidationService):
             from src.agents.csv.schemas import CSV_TEST_CASE_SCHEMA
             self.register_schema("csv_test_case_schema", CSV_TEST_CASE_SCHEMA)
 
+            from src.core.schemas import SECTION_ANALYSIS_SCHEMA
+            self.register_schema("section_analysis_schema",
+                                 SECTION_ANALYSIS_SCHEMA)
+
             # Import and register other schemas as they're created
             # from src.agents.karate.schemas import KARATE_FEATURE_SCHEMA
             # self.register_schema("karate_feature_schema", KARATE_FEATURE_SCHEMA)

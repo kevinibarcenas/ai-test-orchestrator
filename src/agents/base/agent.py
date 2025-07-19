@@ -65,12 +65,20 @@ class BaseAgent(ABC):
         # Add file inputs if available
         user_content = []
 
-        if input_data.swagger_file_id:
+        # For Swagger files: Check if we have content or file ID
+        if hasattr(input_data, 'swagger_content') and input_data.swagger_content:
+            user_content.append({
+                "type": "input_text",
+                "text": f"## Swagger/OpenAPI Specification\n\n```yaml\n{input_data.swagger_content}\n```"
+            })
+        elif input_data.swagger_file_id:
+            # Fallback to file ID if content not available (shouldn't happen with new approach)
             user_content.append({
                 "type": "input_file",
                 "file_id": input_data.swagger_file_id
             })
 
+        # For PDF files: Use file ID (supported by Responses API)
         if input_data.pdf_file_id:
             user_content.append({
                 "type": "input_file",
@@ -139,7 +147,7 @@ class BaseAgent(ABC):
                     f"LLM output validation warnings: {validation_errors}")
 
             # Process into agent-specific output
-            agent_output = self.process_llm_output(llm_output, input_data)
+            agent_output = await self.process_llm_output(llm_output, input_data)
 
             # Update metadata
             processing_time = time.time() - start_time
@@ -162,3 +170,8 @@ class BaseAgent(ABC):
                 processing_time=processing_time,
                 errors=[str(e)]
             )
+
+    @abstractmethod
+    async def process_llm_output(self, llm_output: Dict[str, Any], input_data: AgentInput) -> AgentOutput:
+        """Process the LLM output into agent-specific format"""
+        pass
