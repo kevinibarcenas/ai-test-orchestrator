@@ -53,26 +53,17 @@ async def test_complete_orchestrator():
         container = get_container()
         orchestrator = container.get(TestOrchestrator)
 
-        # Create orchestrator input with all agents enabled and documentation control
+        # Create orchestrator input with all agents enabled
         orchestrator_input = OrchestratorInput(
             swagger_file=swagger_file,
-            user_prompt="Focus on all endpoints with 100 percent coverage",
+            user_prompt="Focus on all endpoints with 100 percent coverage, that means all possible values for fields with enumerated or status-like values",
             output_directory=Path("outputs/artifacts"),
             sectioning_strategy=SectioningStrategy.AUTO,
-            user_prompt="Focus on all endpoints with 100 percent coverage, that means all possible values for fields with enumerated or status-like values",
-            # Agent enablement
             generate_csv=True,        # ✅ QMetry test cases
             generate_karate=True,     # ✅ BDD feature files
             generate_postman=True,    # ✅ API collections
-
-            # Documentation control - NEW FEATURE
-            generate_documentation=True,      # 📋 Master documentation flag
-            generate_csv_docs=True,          # 📊 CSV documentation and guides
-            generate_karate_docs=True,       # 🥋 Karate documentation and setup guides
-            generate_postman_docs=True,      # 📮 Postman documentation and usage guides
-
-            # Processing configuration
-            parallel_processing=True,         # ⚡ Enable parallel execution
+            parallel_processing=True,  # ✅ Enable parallel execution
+            generate_documentation=False,     # 📋 Master documentation flag
         )
 
         print(f"\n🔧 Configuration:")
@@ -80,13 +71,6 @@ async def test_complete_orchestrator():
         print(f"   🥋 Karate Generation: {orchestrator_input.generate_karate}")
         print(
             f"   📮 Postman Generation: {orchestrator_input.generate_postman}")
-        print(
-            f"   📋 Documentation: {orchestrator_input.generate_documentation}")
-        print(f"     └─ CSV Docs: {orchestrator_input.generate_csv_docs}")
-        print(
-            f"     └─ Karate Docs: {orchestrator_input.generate_karate_docs}")
-        print(
-            f"     └─ Postman Docs: {orchestrator_input.generate_postman_docs}")
         print(
             f"   ⚡ Parallel Processing: {orchestrator_input.parallel_processing}")
         print(f"   🎯 Strategy: {orchestrator_input.sectioning_strategy.value}")
@@ -122,15 +106,6 @@ async def test_complete_orchestrator():
         print(f"   📤 Output Tokens: {output_tokens:,}")
         print(f"   🔢 Total Tokens: {total_tokens:,}")
 
-        # Calculate approximate cost (GPT-4o pricing)
-        if total_tokens > 0:
-            input_cost = (input_tokens / 1000) * \
-                0.015  # $0.015 per 1K input tokens
-            output_cost = (output_tokens / 1000) * \
-                0.060  # $0.060 per 1K output tokens
-            total_cost = input_cost + output_cost
-            print(f"   💵 Estimated Cost: ${total_cost:.4f}")
-
         # Agent-specific results
         agent_summary = []
 
@@ -139,33 +114,24 @@ async def test_complete_orchestrator():
                 output.test_case_count for output in result.csv_outputs)
             csv_files = len(
                 [output for output in result.csv_outputs if output.success])
-            csv_docs = len([output for output in result.csv_outputs
-                           if output.success and hasattr(output, 'documentation_file')
-                           and output.documentation_file])
             agent_summary.append(
-                f"📊 CSV: {csv_files} files, {csv_count} test cases, {csv_docs} docs")
+                f"📊 CSV: {csv_files} files, {csv_count} test cases")
 
         if result.karate_outputs:
             karate_scenarios = sum(
                 output.scenario_count for output in result.karate_outputs)
             karate_files = len(
                 [output for output in result.karate_outputs if output.success])
-            karate_docs = len([output for output in result.karate_outputs
-                              if output.success and hasattr(output, 'documentation_file')
-                              and output.documentation_file])
             agent_summary.append(
-                f"🥋 Karate: {karate_files} features, {karate_scenarios} scenarios, {karate_docs} docs")
+                f"🥋 Karate: {karate_files} features, {karate_scenarios} scenarios")
 
         if result.postman_outputs:
             postman_requests = sum(
                 output.request_count for output in result.postman_outputs)
             postman_collections = 1 if any(
                 output.success for output in result.postman_outputs) else 0
-            postman_docs = len([output for output in result.postman_outputs
-                               if output.success and hasattr(output, 'documentation_file')
-                               and output.documentation_file])
             agent_summary.append(
-                f"📮 Postman: {postman_collections} collection, {postman_requests} requests, {postman_docs} docs")
+                f"📮 Postman: {postman_collections} collection, {postman_requests} requests")
 
         if agent_summary:
             print(f"\n🎯 Generated Artifacts:")
@@ -182,7 +148,6 @@ async def test_complete_orchestrator():
             feature_files = [f for f in artifacts if f.endswith('.feature')]
             postman_files = [f for f in artifacts if any(
                 x in f.lower() for x in ['collection', 'environment'])]
-            doc_files = [f for f in artifacts if f.endswith('.md')]
 
             if csv_files:
                 sample_csv = Path(csv_files[0])
@@ -199,28 +164,11 @@ async def test_complete_orchestrator():
                 size = sample_postman.stat().st_size if sample_postman.exists() else 0
                 print(f"   📮 {sample_postman.name} ({size:,} bytes)")
 
-            if doc_files:
-                sample_doc = Path(doc_files[0])
-                size = sample_doc.stat().st_size if sample_doc.exists() else 0
-                print(f"   📋 {sample_doc.name} ({size:,} bytes)")
-
-            if len(artifacts) > 4:
-                print(f"   📂 ... and {len(artifacts) - 4} more files")
+            if len(artifacts) > 3:
+                print(f"   📂 ... and {len(artifacts) - 3} more files")
 
         # Display output location
         print(f"\n📂 Output Location: {orchestrator_input.output_directory}")
-
-        # Show documentation generation summary
-        doc_generated = {
-            "CSV": orchestrator_input.generate_csv_docs and result.csv_outputs,
-            "Karate": orchestrator_input.generate_karate_docs and result.karate_outputs,
-            "Postman": orchestrator_input.generate_postman_docs and result.postman_outputs
-        }
-
-        print(f"\n📋 Documentation Generation:")
-        for agent_type, generated in doc_generated.items():
-            status = "✅ Generated" if generated else "⏭️ Skipped"
-            print(f"   {agent_type}: {status}")
 
         # Show any critical errors
         if result.errors:
@@ -234,120 +182,32 @@ async def test_complete_orchestrator():
 
     except Exception as e:
         print(f"\n❌ Test execution failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-
-async def test_without_documentation():
-    """Test with documentation generation disabled"""
-    print("\n" + "="*60)
-    print("🚀 Testing WITHOUT Documentation Generation")
-    print("="*60)
-
-    try:
-        from src.config.dependencies import get_container
-        from src.core.orchestrator import TestOrchestrator
-        from src.models.orchestrator import OrchestratorInput, SectioningStrategy
-
-        # Get first swagger file
-        swagger_dir = Path("test").joinpath("swagger_files")
-        swagger_files = list(swagger_dir.glob("*.yaml")) + \
-            list(swagger_dir.glob("*.yml"))
-        if not swagger_files:
-            print("❌ No YAML files found for documentation-disabled test")
-            return False
-
-        swagger_file = swagger_files[0]
-        container = get_container()
-        orchestrator = container.get(TestOrchestrator)
-
-        # Create orchestrator input with documentation DISABLED
-        orchestrator_input = OrchestratorInput(
-            swagger_file=swagger_file,
-            output_directory=Path("outputs/artifacts"),
-            sectioning_strategy=SectioningStrategy.AUTO,
-            user_prompt="Focus on all endpoints with 100 percent coverage, that means all possible values for fields with enumerated or status-like values",
-            # Agent enablement
-            generate_csv=True,
-            generate_karate=True,
-            generate_postman=True,
-
-            # Documentation control - DISABLED
-            generate_documentation=False,     # 📋 Master documentation flag - DISABLED
-            generate_csv_docs=False,         # 📊 No CSV documentation
-            generate_karate_docs=False,      # 🥋 No Karate documentation
-            generate_postman_docs=False,     # 📮 No Postman documentation
-            parallel_processing=True
-        )
-
-        print("📋 Documentation: DISABLED for all agents")
-        print("⏳ Running quick test without documentation...")
-
-        result = await orchestrator.execute(orchestrator_input)
-
-        # Check that no documentation files were generated
-        artifacts = result.artifacts_generated
-        doc_files = [f for f in artifacts if f.endswith('.md')]
-
-        print(f"\n📊 Results:")
-        print(f"   Success: {result.success}")
-        print(f"   Total files: {len(artifacts)}")
-        print(f"   Documentation files: {len(doc_files)}")
-        print(f"   Processing time: {result.total_processing_time:.1f}s")
-
-        if len(doc_files) == 0:
-            print("✅ Documentation correctly disabled - no .md files generated")
-        else:
-            print(f"❌ Documentation should be disabled but found: {doc_files}")
-
-        return result.success and len(doc_files) == 0
-
-    except Exception as e:
-        print(f"❌ Documentation-disabled test failed: {e}")
         return False
 
 
 async def main():
     """Run the complete production test"""
-    print("🧪 Running multiple test scenarios...")
-
-    # Test 1: Full generation with documentation
-    # success1 = await test_complete_orchestrator()
-
-    # Test 2: Generation without documentation
-    success2 = await test_without_documentation()
-
-    overall_success = success2
+    success = await test_complete_orchestrator()
 
     print(f"\n" + "="*60)
-    print("🏁 FINAL TEST RESULTS")
-    print("="*60)
-
-    print(f"✅ Test 2 (No Docs): {'PASSED' if success2 else 'FAILED'}")
-    print(f"🎯 Overall: {'SUCCESS' if overall_success else 'FAILED'}")
-
-    if overall_success:
-        print("\n🎉 All tests completed successfully!")
+    if success:
+        print("🎉 SUCCESS! Production test completed successfully!")
         print("\n📋 Next Steps:")
         print("   1. 📊 Import CSV files into QMetry for test management")
         print("   2. 🥋 Copy Karate features to your test project")
         print("   3. 📮 Import Postman collection for API testing")
         print("   4. 🔧 Configure environments and variables")
         print("   5. 🚀 Execute tests in your CI/CD pipeline")
-        print("   6. 📋 Review generated documentation for setup guidance")
 
         print(f"\n✨ All artifacts are production-ready and enterprise-grade!")
-        print(f"🎛️  Documentation generation is now fully configurable!")
 
     else:
-        print("❌ Some tests failed!")
+        print("❌ Production test failed!")
         print("\n🔍 Troubleshooting:")
         print("   • Check OpenAI API key and credits")
         print("   • Verify Swagger file is valid YAML/JSON")
         print("   • Ensure stable internet connection")
         print("   • Review error messages above")
-        print("   • Check token usage tracking is working")
         return 1
 
     return 0
