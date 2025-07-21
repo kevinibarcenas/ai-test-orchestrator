@@ -40,7 +40,7 @@ class CsvAgent(BaseAgent):
         csv_variables = {
             "csv_headers": ", ".join(self.csv_processor.get_default_headers()),
             "qmetry_compatible": True,
-            "target_coverage": "70%",
+            "target_coverage": "100%",
             "test_case_types": ["Functional", "Integration", "Negative", "Security", "Boundary"],
             "priority_levels": ["High", "Medium", "Low"]
         }

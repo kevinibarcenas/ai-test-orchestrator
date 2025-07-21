@@ -20,7 +20,6 @@ class Settings(BaseSettings):
     default_model: str = Field("gpt-4o", description="Default GPT model")
     reasoning_model: str = Field(
         "o4-mini", description="Reasoning model for complex tasks")
-    max_tokens: int = Field(4000, description="Maximum tokens per request")
 
     # Logging Configuration
     log_level: str = Field("INFO", description="Logging level")

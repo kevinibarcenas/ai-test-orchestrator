@@ -60,7 +60,6 @@ class OpenAILLMService(LLMService):
                         "strict": True
                     }
                 },
-                max_output_tokens=self.settings.max_tokens
             )
 
             # Extract the structured result
@@ -89,8 +88,7 @@ class OpenAILLMService(LLMService):
 
             response = self.client.responses.create(
                 model=model or self.settings.default_model,
-                input=input_messages,
-                max_output_tokens=self.settings.max_tokens
+                input=input_messages
             )
 
             # Extract usage information

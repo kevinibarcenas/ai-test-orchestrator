@@ -68,8 +68,6 @@ class OrchestratorInput(BaseModel):
     # Processing options
     parallel_processing: bool = Field(
         True, description="Process agents in parallel")
-    max_tokens_per_section: int = Field(
-        8000, description="Maximum tokens per section")
 
     @model_validator(mode='after')
     def validate_inputs(self):

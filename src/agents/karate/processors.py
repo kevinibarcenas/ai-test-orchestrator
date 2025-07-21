@@ -180,14 +180,6 @@ class KarateProcessor:
         self.logger.info(
             f"Processing {len(scenarios)} scenarios from LLM output")
 
-        # Log scenario count mismatch if detected
-        expected_scenarios = metadata.get("total_scenarios", len(scenarios))
-        if len(scenarios) < expected_scenarios:
-            self.logger.warning(
-                f"⚠️ Scenario count mismatch: Expected {expected_scenarios}, got {len(scenarios)}. "
-                "This may indicate the LLM didn't generate all requested scenarios."
-            )
-
         for i, scenario in enumerate(scenarios):
             self.logger.debug(
                 f"Processing scenario {i+1}: {scenario.get('name', 'Unnamed')}")

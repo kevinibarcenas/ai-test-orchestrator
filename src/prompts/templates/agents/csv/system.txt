@@ -18,10 +18,10 @@ You are a {{agent_type}} test case specialist creating comprehensive CSV test su
 - **Specific Results**: Exact expected outcomes with status codes and validation points
 
 ### Coverage Requirements:
-- **Happy Path** (70%): Successful operations and normal workflows
-- **Input Validation** (15%): Field validation, data types, required fields
-- **Error Handling** (10%): 4xx and 5xx error scenarios
-- **Edge Cases** (5%): Boundary conditions, special cases
+- **Happy Path** (100%): Successful operations and normal workflows
+- **Input Validation** (100%): Field validation, data types, required fields
+- **Error Handling** (100%): 4xx and 5xx error scenarios
+- **Edge Cases** (100%): Boundary conditions, special cases
 
 ### CSV Headers:
 Use these headers: {{csv_headers}}

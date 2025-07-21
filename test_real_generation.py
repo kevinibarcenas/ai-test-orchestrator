@@ -56,14 +56,14 @@ async def test_complete_orchestrator():
         # Create orchestrator input with all agents enabled
         orchestrator_input = OrchestratorInput(
             swagger_file=swagger_file,
-            user_prompt="Generate comprehensive, production-ready test artifacts with excellent coverage of CRUD operations, authentication, error handling, and edge cases. Create professional test cases for QMetry import, BDD scenarios for Karate framework, and enterprise-grade Postman collections for API automation.",
-            output_directory=Path("outputs/production"),
+            user_prompt="Focus on all endpoints with 100 percent coverage, that means all possible values for fields with enumerated or status-like values",
+            output_directory=Path("outputs/artifacts"),
             sectioning_strategy=SectioningStrategy.AUTO,
             generate_csv=True,        # ✅ QMetry test cases
             generate_karate=True,     # ✅ BDD feature files
             generate_postman=True,    # ✅ API collections
             parallel_processing=True,  # ✅ Enable parallel execution
-            max_tokens_per_section=35000
+            generate_documentation=False,     # 📋 Master documentation flag
         )
 
         print(f"\n🔧 Configuration:")

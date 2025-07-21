@@ -95,7 +95,6 @@ def status():
 
         status_table.add_row("Default Model", settings.default_model)
         status_table.add_row("Reasoning Model", settings.reasoning_model)
-        status_table.add_row("Max Tokens", str(settings.max_tokens))
         status_table.add_row("Output Directory",
                              str(settings.output_directory))
         status_table.add_row("Debug Mode", str(settings.debug_mode))

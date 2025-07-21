@@ -56,10 +56,10 @@ async def test_complete_orchestrator():
         # Create orchestrator input with all agents enabled and documentation control
         orchestrator_input = OrchestratorInput(
             swagger_file=swagger_file,
-            user_prompt="Generate comprehensive, production-ready test artifacts with excellent coverage of CRUD operations, authentication, error handling, and edge cases. Create professional test cases for QMetry import, BDD scenarios for Karate framework, and enterprise-grade Postman collections for API automation.",
-            output_directory=Path("outputs/production"),
+            user_prompt="Focus on all endpoints with 100 percent coverage",
+            output_directory=Path("outputs/artifacts"),
             sectioning_strategy=SectioningStrategy.AUTO,
-
+            user_prompt="Focus on all endpoints with 100 percent coverage, that means all possible values for fields with enumerated or status-like values",
             # Agent enablement
             generate_csv=True,        # ✅ QMetry test cases
             generate_karate=True,     # ✅ BDD feature files
@@ -73,7 +73,6 @@ async def test_complete_orchestrator():
 
             # Processing configuration
             parallel_processing=True,         # ⚡ Enable parallel execution
-            max_tokens_per_section=50000
         )
 
         print(f"\n🔧 Configuration:")
@@ -266,10 +265,9 @@ async def test_without_documentation():
         # Create orchestrator input with documentation DISABLED
         orchestrator_input = OrchestratorInput(
             swagger_file=swagger_file,
-            user_prompt="Generate comprehensive, production-ready test cases and artifacts with at least 80 percent coverage of CRUD operations, authentication, error handling, and edge cases. Create professional test cases for QMetry import, BDD scenarios for Karate framework, and enterprise-grade Postman collections for API automation, Generate test artifacts without documentation.",
-            output_directory=Path("outputs/no_docs"),
+            output_directory=Path("outputs/artifacts"),
             sectioning_strategy=SectioningStrategy.AUTO,
-
+            user_prompt="Focus on all endpoints with 100 percent coverage, that means all possible values for fields with enumerated or status-like values",
             # Agent enablement
             generate_csv=True,
             generate_karate=True,
@@ -280,9 +278,7 @@ async def test_without_documentation():
             generate_csv_docs=False,         # 📊 No CSV documentation
             generate_karate_docs=False,      # 🥋 No Karate documentation
             generate_postman_docs=False,     # 📮 No Postman documentation
-
-            parallel_processing=True,
-            max_tokens_per_section=30000  # Smaller for faster test
+            parallel_processing=True
         )
 
         print("📋 Documentation: DISABLED for all agents")

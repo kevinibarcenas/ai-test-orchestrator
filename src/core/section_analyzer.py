@@ -87,7 +87,6 @@ class SectionAnalyzer:
         """Build variables for prompt template"""
         return {
             "sectioning_strategy": orchestrator_input.sectioning_strategy.value,
-            "max_tokens_per_section": orchestrator_input.max_tokens_per_section,
             "user_prompt": orchestrator_input.user_prompt or "No specific focus areas provided",
             "has_swagger": orchestrator_input.swagger_file is not None,
             "has_pdf": orchestrator_input.pdf_file is not None,
@@ -145,7 +144,6 @@ class SectionAnalyzer:
             "## Analysis Request",
             "",
             f"**Sectioning Strategy**: {orchestrator_input.sectioning_strategy.value}",
-            f"**Max Tokens per Section**: {orchestrator_input.max_tokens_per_section}",
             "",
         ]
 
@@ -193,14 +191,12 @@ class SectionAnalyzer:
             "name": "Complete API",
             "description": "Fallback section containing all endpoints",
             "endpoints": [],
-            "test_cases": [],
-            "estimated_tokens": orchestrator_input.max_tokens_per_section
+            "test_cases": []
         }
 
         return SectionAnalysis(
             strategy_used=SectioningStrategy.AUTO,
             total_sections=1,
-            estimated_total_tokens=orchestrator_input.max_tokens_per_section,
             sections_summary=[fallback_section],
             analysis_reasoning="Fallback analysis due to processing error"
         )

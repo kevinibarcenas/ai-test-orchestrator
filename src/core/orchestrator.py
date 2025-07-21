@@ -146,7 +146,6 @@ class TestOrchestrator:
                 "output_directory": orchestrator_input.output_directory,
 
                 # Processing configuration
-                "max_tokens_per_section": orchestrator_input.max_tokens_per_section,
                 "sectioning_strategy": orchestrator_input.sectioning_strategy.value,
                 "parallel_processing": orchestrator_input.parallel_processing
             }
