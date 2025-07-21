@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 import time
 
+from src.config.settings import Settings
 from src.prompts.manager import PromptManager
 from src.services.llm_service import LLMService
 from src.services.validation_service import ValidationService
@@ -17,11 +18,13 @@ class BaseAgent(ABC):
                  agent_type: AgentType,
                  prompt_manager: PromptManager,
                  llm_service: LLMService,
-                 validation_service: ValidationService):
+                 validation_service: ValidationService,
+                 settings: Settings):
         self.agent_type = agent_type
         self.prompt_manager = prompt_manager
         self.llm_service = llm_service
         self.validation_service = validation_service
+        self.settings = settings
         self.logger = get_logger(f"agent_{agent_type.value}")
 
     @abstractmethod
@@ -38,6 +41,11 @@ class BaseAgent(ABC):
     def process_llm_output(self, llm_output: Dict[str, Any], input_data: AgentInput) -> AgentOutput:
         """Process the LLM output into agent-specific format"""
         pass
+
+    def get_model_for_agent(self) -> str:
+        """Get the appropriate model for this agent type"""
+        # Use the default model (gpt-4o) for all generation agents
+        return self.settings.default_model
 
     def build_prompt_variables(self, input_data: AgentInput) -> Dict[str, Any]:
         """Build variables for prompt template rendering"""
@@ -122,8 +130,12 @@ class BaseAgent(ABC):
     async def execute(self, input_data: AgentInput) -> AgentOutput:
         """Execute the agent with input data and proper token tracking"""
         start_time = time.time()
+        agent_model = self.get_model_for_agent()
+
         self.logger.info(
-            f"Starting {self.agent_type.value} agent for section: {input_data.section.section_id}")
+            f"Starting {self.agent_type.value} agent for section: {input_data.section.section_id} "
+            f"using model: {agent_model}"
+        )
 
         try:
             # Build messages for LLM
@@ -133,18 +145,26 @@ class BaseAgent(ABC):
             schema = self.validation_service.get_schema(
                 self.get_output_schema_name())
 
-            # Make LLM call with structured output and get token usage
+            # Make LLM call with structured output using the appropriate model and get token usage
             llm_output, usage_info = await self.llm_service.generate_structured_response(
                 messages=messages,
-                schema=schema
+                schema=schema,
+                model=agent_model
             )
 
-            # Log token usage
+            # Log token usage with model information
             self.logger.info(
-                f"LLM call completed - Input: {usage_info['input_tokens']}, "
+                f"LLM call completed with {agent_model} - "
+                f"Input: {usage_info['input_tokens']}, "
                 f"Output: {usage_info['output_tokens']}, "
                 f"Total: {usage_info['total_tokens']} tokens"
             )
+
+            # Log reasoning tokens if present (for o1 models, though agents shouldn't use them)
+            if usage_info.get('reasoning_tokens', 0) > 0:
+                self.logger.info(
+                    f"Reasoning tokens used: {usage_info['reasoning_tokens']}"
+                )
 
             # Validate output
             validation_errors = self.validation_service.validate(
@@ -169,7 +189,7 @@ class BaseAgent(ABC):
 
             self.logger.info(
                 f"✅ {self.agent_type.value} agent completed in {processing_time:.2f}s "
-                f"(Tokens: {usage_info['total_tokens']})"
+                f"(Model: {agent_model}, Tokens: {usage_info['total_tokens']})"
             )
             return agent_output
 

@@ -2,6 +2,7 @@
 from typing import Any, Dict
 
 from src.config.dependencies import inject
+from src.config.settings import Settings
 from src.agents.base.agent import BaseAgent
 from src.agents.csv.processors import CSVProcessor
 from src.models.base import AgentType
@@ -20,8 +21,10 @@ class CsvAgent(BaseAgent):
                  prompt_manager: PromptManager,
                  llm_service: LLMService,
                  validation_service: ValidationService,
+                 settings: Settings,
                  csv_processor: CSVProcessor):
-        super().__init__(AgentType.CSV, prompt_manager, llm_service, validation_service)
+        super().__init__(AgentType.CSV, prompt_manager,
+                         llm_service, validation_service, settings)
         self.csv_processor = csv_processor
 
     def get_system_prompt_name(self) -> str:
@@ -86,7 +89,8 @@ class CsvAgent(BaseAgent):
                     "validation_passed": is_valid,
                     "section_name": input_data.section.name,
                     "endpoints_processed": len(input_data.section.endpoints),
-                    "output_directory": str(output_directory) if output_directory else None
+                    "output_directory": str(output_directory) if output_directory else None,
+                    "model_used": self.get_model_for_agent()
                 }
             )
 

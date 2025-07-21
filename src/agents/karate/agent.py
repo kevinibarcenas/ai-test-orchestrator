@@ -3,6 +3,7 @@
 from typing import Any, Dict
 
 from src.config.dependencies import inject
+from src.config.settings import Settings
 from src.agents.base.agent import BaseAgent
 from src.agents.karate.processors import KarateProcessor
 from src.models.base import AgentType
@@ -21,8 +22,10 @@ class KarateAgent(BaseAgent):
                  prompt_manager: PromptManager,
                  llm_service: LLMService,
                  validation_service: ValidationService,
+                 settings: Settings,
                  karate_processor: KarateProcessor):
-        super().__init__(AgentType.KARATE, prompt_manager, llm_service, validation_service)
+        super().__init__(AgentType.KARATE, prompt_manager,
+                         llm_service, validation_service, settings)
         self.karate_processor = karate_processor
 
     def get_system_prompt_name(self) -> str:
@@ -78,12 +81,6 @@ class KarateAgent(BaseAgent):
             self.logger.info(f"LLM generated {len(scenarios)} scenarios")
             self.logger.info(
                 f"Expected at least {expected_scenarios} scenarios based on test cases")
-
-            if len(scenarios) < expected_scenarios:
-                self.logger.warning(
-                    f"⚠️ Scenario shortage: Generated {len(scenarios)} but expected at least {expected_scenarios}. "
-                    "This may indicate insufficient prompt guidance or token limits."
-                )
 
             if scenarios:
                 # Log first 3 scenario names
@@ -153,7 +150,8 @@ class KarateAgent(BaseAgent):
                     "output_directory": str(output_directory) if output_directory else None,
                     "scenarios_expected": expected_scenarios,
                     "scenarios_generated": len(scenarios),
-                    "scenario_coverage_ratio": len(scenarios) / max(expected_scenarios, 1)
+                    "scenario_coverage_ratio": len(scenarios) / max(expected_scenarios, 1),
+                    "model_used": self.get_model_for_agent()
                 }
             )
 

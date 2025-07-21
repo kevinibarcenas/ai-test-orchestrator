@@ -3,6 +3,7 @@
 from typing import Any, Dict
 
 from src.config.dependencies import inject
+from src.config.settings import Settings
 from src.agents.base.agent import BaseAgent
 from src.agents.postman.processors import PostmanProcessor
 from src.models.base import AgentType
@@ -21,8 +22,10 @@ class PostmanAgent(BaseAgent):
                  prompt_manager: PromptManager,
                  llm_service: LLMService,
                  validation_service: ValidationService,
+                 settings: Settings,
                  postman_processor: PostmanProcessor):
-        super().__init__(AgentType.POSTMAN, prompt_manager, llm_service, validation_service)
+        super().__init__(AgentType.POSTMAN, prompt_manager,
+                         llm_service, validation_service, settings)
         self.postman_processor = postman_processor
 
     def get_system_prompt_name(self) -> str:
@@ -64,7 +67,8 @@ class PostmanAgent(BaseAgent):
                 **metadata,
                 "section_name": input_data.section.name,
                 "section_description": input_data.section.description,
-                "endpoints_processed": len(input_data.section.endpoints)
+                "endpoints_processed": len(input_data.section.endpoints),
+                "model_used": self.get_model_for_agent()  # 🔥 Track which model was used
             }
 
             # Extract documentation generation flag from agent config
@@ -115,7 +119,8 @@ class PostmanAgent(BaseAgent):
                     "endpoints_processed": len(input_data.section.endpoints),
                     "consolidated": True,  # Flag to indicate this is part of a consolidated collection
                     "documentation_generation": generate_docs,
-                    "output_directory": str(output_directory) if output_directory else None
+                    "output_directory": str(output_directory) if output_directory else None,
+                    "model_used": self.get_model_for_agent()
                 }
             )
 

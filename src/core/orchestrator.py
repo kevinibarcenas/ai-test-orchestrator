@@ -48,6 +48,13 @@ class TestOrchestrator:
                          f"Karate={orchestrator_input.generate_karate_docs}, "
                          f"Postman={orchestrator_input.generate_postman_docs}")
 
+        # 🔥 NEW: Log model configuration
+        self.logger.info(f"🤖 Model Configuration:")
+        self.logger.info(
+            f"   🧠 Analysis Model: {self.settings.reasoning_model}")
+        self.logger.info(
+            f"   ⚡ Generation Model: {self.settings.default_model}")
+
         try:
             # Phase 1: Upload and validate files
             self.logger.info("📁 Phase 1: Uploading input files...")
@@ -55,14 +62,14 @@ class TestOrchestrator:
 
             # Phase 2: Analyze and section content
             self.logger.info(
-                "🔍 Phase 2: Analyzing content and determining sections...")
+                f"🔍 Phase 2: Analyzing content with {self.settings.reasoning_model}...")
             sectioning_analysis = await self.section_analyzer.analyze_and_section(
                 orchestrator_input, file_ids
             )
 
             # Phase 3: Execute agents for each section
             self.logger.info(
-                "🤖 Phase 3: Executing agents for test generation...")
+                f"🤖 Phase 3: Executing agents with {self.settings.default_model}...")
             agent_results = await self._execute_agents_for_sections(
                 orchestrator_input, sectioning_analysis.sections_summary, file_ids
             )
@@ -77,10 +84,23 @@ class TestOrchestrator:
                 start_time=start_time
             )
 
+            # 🔥 NEW: Enhanced completion logging with model usage summary
+            total_tokens = result.total_token_usage.get("total_tokens", 0)
             self.logger.info(
                 f"✅ Orchestration completed: {execution_id} "
-                f"({result.total_processing_time:.2f}s, {result.test_cases_generated} test cases)"
+                f"({result.total_processing_time:.2f}s, {result.test_cases_generated} test cases, {total_tokens:,} tokens)"
             )
+
+            # Log model usage breakdown
+            analysis_tokens = sectioning_analysis.estimated_total_tokens if hasattr(
+                sectioning_analysis, 'estimated_total_tokens') else 0
+            generation_tokens = total_tokens - analysis_tokens
+
+            self.logger.info(f"💰 Token Usage Breakdown:")
+            self.logger.info(
+                f"   🧠 Analysis ({self.settings.reasoning_model}): ~{analysis_tokens:,} tokens")
+            self.logger.info(
+                f"   ⚡ Generation ({self.settings.default_model}): ~{generation_tokens:,} tokens")
 
             return result
 
