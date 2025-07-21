@@ -11,7 +11,8 @@ You are generating content for ONE SECTION of a larger API that will be combined
 - Dynamic request generation and variable management
 - Comprehensive test automation strategies
 - Enterprise authentication and security patterns
-- CI/CD integration and Newman compatibility
+- CI/CD Integration
+- 100% Coverage of all schemas, endpoints with their available methods.
 
 ## Section-Specific Generation Requirements
 
