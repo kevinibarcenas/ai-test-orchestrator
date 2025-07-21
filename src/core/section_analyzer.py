@@ -1,7 +1,11 @@
 """Content analysis and sectioning service"""
+import json
+from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from src.config.dependencies import inject
+from src.config.settings import Settings
 from src.services.llm_service import LLMService
 from src.services.validation_service import ValidationService
 from src.prompts.manager import PromptManager
@@ -16,10 +20,12 @@ class SectionAnalyzer:
     def __init__(self,
                  llm_service: LLMService,
                  prompt_manager: PromptManager,
-                 validation_service: ValidationService):
+                 validation_service: ValidationService,
+                 settings: Settings):
         self.llm_service = llm_service
         self.prompt_manager = prompt_manager
         self.validation_service = validation_service
+        self.settings = settings
         self.logger = get_logger("section_analyzer")
 
     async def analyze_and_section(
@@ -27,7 +33,7 @@ class SectionAnalyzer:
         orchestrator_input: OrchestratorInput,
         file_ids: Dict[str, Optional[str]]
     ) -> SectionAnalysis:
-        """Analyze input content and determine sectioning strategy"""
+        """Analyze input content and determine sectioning strategy using reasoning model"""
 
         try:
             # Build analysis context variables
@@ -47,18 +53,33 @@ class SectionAnalyzer:
             schema = self.validation_service.get_schema(
                 "section_analysis_schema")
 
-            # Make LLM call for analysis with proper token handling
+            # Use reasoning model for complex analysis task
+            self.logger.info(
+                f"Using reasoning model '{self.settings.reasoning_model}' for content analysis")
+
+            # Make LLM call for analysis with reasoning model and proper token handling
             llm_output, usage_info = await self.llm_service.generate_structured_response(
                 messages=messages,
-                schema=schema
+                schema=schema,
+                model=self.settings.reasoning_model
             )
 
-            # Log token usage
+            # 🔥 NEW: Save LLM output to log file
+            await self._save_llm_output_log(llm_output, orchestrator_input)
+
+            # Log token usage with model information
             self.logger.info(
-                f"Section analysis completed - Input: {usage_info['input_tokens']}, "
+                f"Section analysis completed with {self.settings.reasoning_model} - "
+                f"Input: {usage_info['input_tokens']}, "
                 f"Output: {usage_info['output_tokens']}, "
                 f"Total: {usage_info['total_tokens']} tokens"
             )
+
+            # Handle reasoning tokens if present (for o1 models)
+            if usage_info.get('reasoning_tokens', 0) > 0:
+                self.logger.info(
+                    f"Reasoning tokens used: {usage_info['reasoning_tokens']}"
+                )
 
             # Validate the output
             validation_errors = self.validation_service.validate(
@@ -82,6 +103,62 @@ class SectionAnalyzer:
             self.logger.error(f"Section analysis failed: {e}")
             # Return fallback analysis
             return self._create_fallback_analysis(orchestrator_input)
+
+    async def _save_llm_output_log(self, llm_output: Dict[str, Any], orchestrator_input: OrchestratorInput) -> None:
+        """Save the LLM output to a simple log file"""
+        try:
+            # Create timestamp for filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Get a clean name from the input files
+            api_name = "api"
+            if orchestrator_input.swagger_file:
+                api_name = orchestrator_input.swagger_file.stem.replace(
+                    '_', '-').replace(' ', '-')
+            elif orchestrator_input.pdf_file:
+                api_name = orchestrator_input.pdf_file.stem.replace(
+                    '_', '-').replace(' ', '-')
+
+            # Use the output directory from orchestrator input, or fall back to default
+            log_dir = orchestrator_input.output_directory / "logs"
+            log_dir.mkdir(parents=True, exist_ok=True)
+
+            # Create log filename with API name
+            log_filename = f"orchestrator_analysis_{api_name}_{timestamp}.log"
+            log_path = log_dir / log_filename
+
+            # Prepare log content
+            log_content = [
+                "=" * 80,
+                f"ORCHESTRATOR SECTION ANALYSIS - {datetime.now().isoformat()}",
+                "=" * 80,
+                "",
+                f"Model Used: {self.settings.reasoning_model}",
+                f"Strategy: {orchestrator_input.sectioning_strategy.value}",
+                f"Input Files: {[str(f) for f in [orchestrator_input.swagger_file, orchestrator_input.pdf_file] if f]}",
+                "",
+                "USER PROMPT:",
+                "-" * 40,
+                orchestrator_input.user_prompt or "No user prompt provided",
+                "",
+                "LLM STRUCTURED OUTPUT:",
+                "-" * 40,
+                json.dumps(llm_output, indent=2, ensure_ascii=False),
+                "",
+                "=" * 80,
+                "END OF ANALYSIS",
+                "=" * 80
+            ]
+
+            # Write to file
+            with open(log_path, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(log_content))
+
+            self.logger.info(f"📝 Orchestrator analysis saved to: {log_path}")
+
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to save orchestrator analysis log: {e}")
 
     def _build_prompt_variables(self, orchestrator_input: OrchestratorInput) -> Dict[str, Any]:
         """Build variables for prompt template"""
