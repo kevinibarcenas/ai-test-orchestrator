@@ -117,8 +117,6 @@ class PromptManager:
             for prompt_file in prompt_files:
                 self._load_prompt_template(prompt_file)
 
-            self.logger.info(f"Loaded {len(self._templates)} prompt templates")
-
         except Exception as e:
             self.logger.error(f"Failed to load prompts: {e}")
             raise

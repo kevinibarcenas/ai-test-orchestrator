@@ -56,8 +56,6 @@ class JSONSchemaValidationService(ValidationService):
             self.register_schema("section_analysis_schema",
                                  SECTION_ANALYSIS_SCHEMA)
 
-            self.logger.info(f"Loaded {len(self._schemas)} default schemas")
-
         except ImportError as e:
             self.logger.warning(f"Failed to load some schemas: {e}")
 
@@ -85,4 +83,3 @@ class JSONSchemaValidationService(ValidationService):
     def register_schema(self, name: str, schema: Dict[str, Any]) -> None:
         """Register a new schema"""
         self._schemas[name] = schema
-        self.logger.debug(f"Registered schema: {name}")
